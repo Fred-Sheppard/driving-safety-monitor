@@ -6,8 +6,8 @@
 #include <stdint.h>
 
 // WiFi credentials (hardcoded for development)
-#define WIFI_SSID      "ul_iot"
-#define WIFI_PASSWORD  ""
+#define WIFI_SSID      "JoshiPhone"
+#define WIFI_PASSWORD  "joshshotspot"
 
 // Maximum retry attempts before giving up
 #define WIFI_MAXIMUM_RETRY    10

@@ -112,7 +112,7 @@ esp_err_t wifi_manager_init(void) {
         .sta = {
             .ssid = WIFI_SSID,
             .password = WIFI_PASSWORD,
-            .threshold.authmode = WIFI_AUTH_OPEN,
+            .threshold.authmode = WIFI_AUTH_WPA_WPA2_PSK,
             .sae_pwe_h2e = WPA3_SAE_PWE_BOTH,
         },
     };

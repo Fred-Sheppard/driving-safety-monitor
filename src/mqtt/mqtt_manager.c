@@ -1,5 +1,5 @@
 #include "mqtt_manager.h"
-#include "message_types.h"
+#include "../message_types.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
