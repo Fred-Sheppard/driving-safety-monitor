@@ -7,6 +7,12 @@
 #include "message_types.h"
 #include "wifi/wifi_manager.h"
 #include "mqtt/mqtt_manager.h"
+#include "processing/process.h"
+
+// Task priorities (higher = more important)
+#define SENSOR_TASK_PRIORITY 5
+#define PROCESSING_TASK_PRIORITY 4
+#define MQTT_TASK_PRIORITY 2
 
 static const char *TAG = "main";
 
@@ -62,19 +68,12 @@ void app_main(void)
     ESP_ERROR_CHECK(mqtt_manager_start());
     ESP_LOGI(TAG, "MQTT client started");
 
-    // 6. Create mqtt_task with priority 2 (lowest of the three tasks)
     // Stack needs to be large due to JSON serialization of batches
-    xTaskCreate(
-        mqtt_task,
-        "mqtt",
-        16384,
-        NULL,
-        2,
-        NULL);
+    xTaskCreate(mqtt_task, "mqtt", 16384, NULL, MQTT_TASK_PRIORITY, NULL);
 
     // TODO: Create sensor_task and processing_task
-    // xTaskCreate(processing_task, "process", 4096, NULL, 4, NULL);
-    // xTaskCreate(sensor_task, "sensor", 4096, NULL, 5, NULL);
+    xTaskCreate(processing_task, "process", 4096, NULL, PROCESSING_TASK_PRIORITY, NULL);
+    // xTaskCreate(sensor_task, "sensor", 4096, NULL, SENSOR_TASK_PRIORITY, NULL);
 
     ESP_LOGI(TAG, "Tasks created, system running");
 

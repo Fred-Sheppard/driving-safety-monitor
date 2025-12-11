@@ -29,14 +29,16 @@ typedef enum {
 // Warning event types
 typedef enum {
     WARNING_HARSH_BRAKING,
-    WARNING_HARSH_ACCEL
+    WARNING_HARSH_ACCEL,
+    WARNING_HARSH_CORNERING
 } warning_event_t;
 
 // Warning data structure
 typedef struct {
     warning_event_t event;
     uint32_t timestamp;
-    float accel_y;
+    float accel_x; // Lateral (cornering)
+    float accel_y; // Longitudinal (braking/acceleration)
 } warning_data_t;
 
 // Crash data structure
