@@ -58,10 +58,11 @@ void app_main(void) {
     ESP_LOGI(TAG, "MQTT client started");
 
     // 6. Create mqtt_task with priority 2 (lowest of the three tasks)
+    // Stack needs to be large due to JSON serialization of batches
     xTaskCreate(
         mqtt_task,
         "mqtt",
-        8192,
+        16384,
         NULL,
         2,
         NULL
@@ -72,4 +73,51 @@ void app_main(void) {
     // xTaskCreate(sensor_task, "sensor", 4096, NULL, 5, NULL);
 
     ESP_LOGI(TAG, "Tasks created, system running");
+
+    // ===== TEMPORARY: Send mock data for testing =====
+    vTaskDelay(pdMS_TO_TICKS(3000));  // Wait for MQTT to connect
+
+    // Send a mock warning alert
+    ESP_LOGI(TAG, "Sending mock warning alert...");
+    mqtt_message_t warning_msg = {
+        .type = MSG_WARNING,
+        .data.warning = {
+            .event = WARNING_HARSH_BRAKING,
+            .timestamp = xTaskGetTickCount(),
+            .accel_y = -4.5f
+        }
+    };
+    xQueueSend(mqtt_queue, &warning_msg, 0);
+
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    // Send a mock crash alert
+    ESP_LOGI(TAG, "Sending mock crash alert...");
+    mqtt_message_t crash_msg = {
+        .type = MSG_CRASH,
+        .data.crash = {
+            .timestamp = xTaskGetTickCount(),
+            .accel_magnitude = 15.2f
+        }
+    };
+    xQueueSend(mqtt_queue, &crash_msg, 0);
+
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    // Send a mock telemetry batch (small - 10 samples for testing)
+    ESP_LOGI(TAG, "Sending mock telemetry batch...");
+    static sensor_batch_t mock_batch;  // static to avoid stack overflow
+    mock_batch.batch_start_timestamp = xTaskGetTickCount();
+    mock_batch.sample_rate_hz = SAMPLE_RATE_HZ;
+    mock_batch.sample_count = 10;  // Only 10 samples for testing
+
+    for (int i = 0; i < 10; i++) {
+        mock_batch.samples[i].x = 0.01f * i;
+        mock_batch.samples[i].y = -9.81f + (0.1f * i);
+        mock_batch.samples[i].z = 0.02f * i;
+    }
+    xQueueSend(batch_queue, &mock_batch, 0);
+
+    ESP_LOGI(TAG, "Mock data sent! Check the bridge logs.");
+    // ===== END TEMPORARY =====
 }
