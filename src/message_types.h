@@ -13,7 +13,7 @@
 #define BATCH_QUEUE_SIZE    3
 
 // Batch configuration
-#define BATCH_SIZE          500
+#define LOG_BATCH_SIZE          500
 #define SAMPLE_RATE_HZ      100
 
 // MQTT Topics
@@ -66,7 +66,7 @@ typedef struct {
     uint32_t batch_start_timestamp;
     uint16_t sample_rate_hz;
     uint16_t sample_count;
-    sensor_reading_t samples[BATCH_SIZE];
+    sensor_reading_t samples[LOG_BATCH_SIZE];
 } sensor_batch_t;
 
 // External queue handles (defined in main.c)
