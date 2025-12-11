@@ -4,9 +4,6 @@
 #include <stdbool.h>
 #include "message_types.h"
 
-// Default crash threshold in g-force (can be overridden via server command)
-#define DEFAULT_CRASH_THRESHOLD_G 8.0f
-
 // Initialize crash detection (call once at startup)
 void crash_detection_init(void);
 

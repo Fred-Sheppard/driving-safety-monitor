@@ -4,10 +4,6 @@
 #include <stdbool.h>
 #include "message_types.h"
 
-// Default harsh braking threshold in g-force (negative Y-axis deceleration)
-// Typical harsh braking is around 0.4-0.5g
-#define DEFAULT_HARSH_BRAKING_THRESHOLD_G 4.0f
-
 // Initialize brake detection (call once at startup)
 void brake_detection_init(void);
 

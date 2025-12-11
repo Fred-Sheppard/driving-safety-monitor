@@ -4,13 +4,6 @@
 #include "esp_err.h"
 #include <stdbool.h>
 
-// MQTT Broker configuration
-#define MQTT_BROKER_URI    "mqtt://alderaan.software-engineering.ie:1883"
-
-// QoS levels
-#define MQTT_QOS_ALERTS     1   // At-least-once for critical alerts
-#define MQTT_QOS_TELEMETRY  0   // At-most-once for bulk telemetry
-
 /**
  * @brief Initialize MQTT client
  * @return ESP_OK on success

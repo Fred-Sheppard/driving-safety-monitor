@@ -17,7 +17,6 @@ static sensor_batch_t current_batch;
 static uint16_t batch_index = 0;
 
 // Forward declarations
-static float calculate_accel_magnitude(const sensor_reading_t *data);
 static void send_log(const sensor_reading_t *data);
 static void process_sensor_data(const sensor_reading_t *data);
 
@@ -27,7 +26,7 @@ void processing_task(void *pvParameters)
     sensor_reading_t sensor_data;
 
     // Initialize batch
-    current_batch.sample_rate_hz = SAMPLE_RATE_HZ;
+    current_batch.sample_rate_hz = IMU_SAMPLE_RATE_HZ;
     current_batch.sample_count = 0;
     batch_index = 0;
 
@@ -88,13 +87,6 @@ static void process_sensor_data(const sensor_reading_t *data)
     }
 
     send_log(data);
-}
-
-static float calculate_accel_magnitude(const sensor_reading_t *data)
-{
-    return sqrtf(data->x * data->x +
-                 data->y * data->y +
-                 data->z * data->z);
 }
 
 static void send_log(const sensor_reading_t *data)

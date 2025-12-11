@@ -4,16 +4,12 @@
 #include "freertos/queue.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
+#include "config.h"
 #include "message_types.h"
 #include "wifi/wifi_manager.h"
 #include "mqtt/mqtt_manager.h"
 #include "processing/process.h"
 #include "sensor/sensor.h"
-
-// Task priorities (higher = more important)
-#define SENSOR_TASK_PRIORITY 5
-#define PROCESSING_TASK_PRIORITY 4
-#define MQTT_TASK_PRIORITY 2
 
 static const char *TAG = "main";
 
@@ -78,7 +74,7 @@ void app_main(void)
     ESP_LOGI(TAG, "Tasks created, system running");
 
     // TEMPORARY: Send mock data for testing
-    send_mock_data();
+    // send_mock_data();
 }
 
 static void send_mock_data(void)
@@ -110,7 +106,7 @@ static void send_mock_data(void)
     ESP_LOGI(TAG, "Sending mock telemetry batch...");
     static sensor_batch_t mock_batch; // static to avoid stack overflow
     mock_batch.batch_start_timestamp = xTaskGetTickCount();
-    mock_batch.sample_rate_hz = SAMPLE_RATE_HZ;
+    mock_batch.sample_rate_hz = IMU_SAMPLE_RATE_HZ;
     mock_batch.sample_count = 10; // Only 10 samples for testing
 
     for (int i = 0; i < 10; i++)

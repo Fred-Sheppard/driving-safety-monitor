@@ -1,4 +1,5 @@
 #include "accelerate.h"
+#include "config.h"
 #include "message_types.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

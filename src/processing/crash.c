@@ -1,4 +1,5 @@
 #include "crash.h"
+#include "config.h"
 #include "message_types.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -24,6 +25,13 @@ void crash_set_threshold(float threshold_g)
 float crash_get_threshold(void)
 {
     return crash_threshold_g;
+}
+
+static float calculate_accel_magnitude(const sensor_reading_t *data)
+{
+    return sqrtf(data->x * data->x +
+                 data->y * data->y +
+                 data->z * data->z);
 }
 
 bool detect_crash(const sensor_reading_t *data)

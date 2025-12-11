@@ -5,20 +5,7 @@
 #include <stdbool.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
-
-// Queue sizes from design docs
-#define SENSOR_QUEUE_SIZE   10
-#define MQTT_QUEUE_SIZE     20
-#define COMMAND_QUEUE_SIZE  5
-#define BATCH_QUEUE_SIZE    3
-
-// Batch configuration
-#define LOG_BATCH_SIZE          500
-#define SAMPLE_RATE_HZ      100
-
-// MQTT Topics
-#define MQTT_TOPIC_ALERTS     "driving/alerts"
-#define MQTT_TOPIC_TELEMETRY  "driving/telemetry"
+#include "config.h"
 
 // Message type enumeration
 typedef enum {

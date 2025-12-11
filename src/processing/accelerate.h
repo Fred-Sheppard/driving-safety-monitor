@@ -4,10 +4,6 @@
 #include <stdbool.h>
 #include "message_types.h"
 
-// Default harsh acceleration threshold in g-force (positive Y-axis)
-// Typical harsh acceleration is around 0.3-0.4g
-#define DEFAULT_HARSH_ACCEL_THRESHOLD_G 3.5f
-
 // Initialize acceleration detection (call once at startup)
 void accel_detection_init(void);
 
