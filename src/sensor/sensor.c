@@ -58,6 +58,7 @@ void sensor_task(void *pvParameters)
         reading = read_imu();
 #endif
 
+        // TODO: Full queue policy
         if (xQueueSend(sensor_queue, &reading, 0) != pdTRUE)
         {
             ESP_LOGW(TAG, "Sensor queue full, dropping sample");

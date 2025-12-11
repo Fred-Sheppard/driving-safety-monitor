@@ -27,16 +27,20 @@ float crash_get_threshold(void)
     return crash_threshold_g;
 }
 
-static float calculate_accel_magnitude(const sensor_reading_t *data)
+#define GRAVITY_G 9.81f
+
+static float calculate_dynamic_accel_magnitude(const sensor_reading_t *data)
 {
+    // Subtract gravity from Z-axis to get dynamic acceleration only
+    float z_dynamic = data->z - GRAVITY_G;
     return sqrtf(data->x * data->x +
                  data->y * data->y +
-                 data->z * data->z);
+                 z_dynamic * z_dynamic);
 }
 
 bool detect_crash(const sensor_reading_t *data)
 {
-    float accel_magnitude = calculate_accel_magnitude(data);
+    float accel_magnitude = calculate_dynamic_accel_magnitude(data);
     return accel_magnitude >= crash_threshold_g;
 }
 
@@ -46,9 +50,7 @@ void handle_crash(const sensor_reading_t *data)
         .type = MSG_CRASH,
         .data.crash = {
             .timestamp = xTaskGetTickCount(),
-            .accel_magnitude = sqrtf(data->x * data->x +
-                                     data->y * data->y +
-                                     data->z * data->z)}};
+            .accel_magnitude = calculate_dynamic_accel_magnitude(data)}};
 
     // Send to mqtt_queue for immediate transmission
     if (xQueueSend(mqtt_queue, &msg, 0) != pdTRUE)

@@ -124,36 +124,48 @@ static char *serialize_alert_to_json(const mqtt_message_t *msg) {
 static char *serialize_batch_to_json(const sensor_batch_t *batch) {
     cJSON *root = cJSON_CreateObject();
     if (root == NULL) {
+        ESP_LOGE(TAG, "Failed to create root JSON object");
         return NULL;
     }
 
-    cJSON_AddNumberToObject(root, "batch_start_timestamp", batch->batch_start_timestamp);
-    cJSON_AddNumberToObject(root, "sample_rate_hz", batch->sample_rate_hz);
-    cJSON_AddNumberToObject(root, "sample_count", batch->sample_count);
+    cJSON_AddNumberToObject(root, "ts", batch->batch_start_timestamp);
+    cJSON_AddNumberToObject(root, "rate", batch->sample_rate_hz);
+    cJSON_AddNumberToObject(root, "n", batch->sample_count);
 
+    // Use compact array format: [[x,y,z], [x,y,z], ...] instead of objects
     cJSON *samples = cJSON_CreateArray();
     if (samples == NULL) {
+        ESP_LOGE(TAG, "Failed to create samples array");
         cJSON_Delete(root);
         return NULL;
     }
 
     for (uint16_t i = 0; i < batch->sample_count; i++) {
-        cJSON *sample = cJSON_CreateObject();
+        // Create [x, y, z] array for each sample (more compact than object)
+        cJSON *sample = cJSON_CreateFloatArray(
+            (const float[]){
+                batch->samples[i].x,
+                batch->samples[i].y,
+                batch->samples[i].z
+            }, 3);
+
         if (sample == NULL) {
+            ESP_LOGE(TAG, "Failed to create sample at index %d (free heap: %lu)",
+                     i, (unsigned long)esp_get_free_heap_size());
             cJSON_Delete(root);
             return NULL;
         }
 
-        cJSON_AddNumberToObject(sample, "x", batch->samples[i].x);
-        cJSON_AddNumberToObject(sample, "y", batch->samples[i].y);
-        cJSON_AddNumberToObject(sample, "z", batch->samples[i].z);
-
         cJSON_AddItemToArray(samples, sample);
     }
 
-    cJSON_AddItemToObject(root, "samples", samples);
+    cJSON_AddItemToObject(root, "d", samples);
 
     char *json_str = cJSON_PrintUnformatted(root);
+    if (json_str == NULL) {
+        ESP_LOGE(TAG, "Failed to print JSON (free heap: %lu)",
+                 (unsigned long)esp_get_free_heap_size());
+    }
     cJSON_Delete(root);
 
     return json_str;
