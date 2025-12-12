@@ -43,16 +43,17 @@ const config = {
 // Global connections
 let db = null;
 let mqttClient = null;
+let batchCounter = 0;
 
 /**
- * Initialize SQLite database with new schema
+ * Initialize SQLite database with simplified schema
  */
 function initDatabase() {
     console.log(`[SQLite] Opening database: ${config.sqlite.filename}`);
 
     db = new Database(config.sqlite.filename);
 
-    // Create tables for the new schema
+    // Create tables - simplified schema with just two tables
     db.exec(`
         -- Alerts table: crashes and warnings
         CREATE TABLE IF NOT EXISTS alerts (
@@ -67,35 +68,32 @@ function initDatabase() {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
-        -- Telemetry batches metadata
-        CREATE TABLE IF NOT EXISTS telemetry_batches (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            batch_start_timestamp INTEGER NOT NULL,
-            sample_rate_hz INTEGER NOT NULL,
-            sample_count INTEGER NOT NULL,
-            received_at INTEGER NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-
-        -- Individual sensor readings (expanded from batches)
+        -- Sensor readings table (all readings, grouped by batch_id)
         CREATE TABLE IF NOT EXISTS sensor_readings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            batch_id INTEGER NOT NULL,
-            sample_index INTEGER NOT NULL,
-            calculated_timestamp INTEGER,  -- batch_start + (index * 1000 / sample_rate)
+            batch_id INTEGER NOT NULL,          -- groups readings from same batch
+            sample_index INTEGER NOT NULL,      -- position within batch (0-499)
+            batch_start_timestamp INTEGER,      -- batch start timestamp (same for all in batch)
+            sample_rate_hz INTEGER,             -- sample rate (same for all in batch)
+            calculated_timestamp INTEGER,       -- batch_start + (index * 1000 / sample_rate)
             x REAL NOT NULL,
             y REAL NOT NULL,
             z REAL NOT NULL,
-            FOREIGN KEY (batch_id) REFERENCES telemetry_batches(id)
+            received_at INTEGER NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
         -- Indexes for efficient queries
         CREATE INDEX IF NOT EXISTS idx_alerts_type ON alerts(type);
         CREATE INDEX IF NOT EXISTS idx_alerts_created ON alerts(created_at);
-        CREATE INDEX IF NOT EXISTS idx_batches_created ON telemetry_batches(created_at);
         CREATE INDEX IF NOT EXISTS idx_readings_batch ON sensor_readings(batch_id);
         CREATE INDEX IF NOT EXISTS idx_readings_timestamp ON sensor_readings(calculated_timestamp);
+        CREATE INDEX IF NOT EXISTS idx_readings_created ON sensor_readings(created_at);
     `);
+
+    // Get the max batch_id to continue from
+    const maxBatch = db.prepare('SELECT MAX(batch_id) as max FROM sensor_readings').get();
+    batchCounter = (maxBatch.max || 0) + 1;
 
     // Prepare insert statements
     db.insertAlert = db.prepare(`
@@ -103,26 +101,21 @@ function initDatabase() {
         VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
 
-    db.insertBatch = db.prepare(`
-        INSERT INTO telemetry_batches (batch_start_timestamp, sample_rate_hz, sample_count, received_at)
-        VALUES (?, ?, ?, ?)
-    `);
-
     db.insertReading = db.prepare(`
-        INSERT INTO sensor_readings (batch_id, sample_index, calculated_timestamp, x, y, z)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO sensor_readings (batch_id, sample_index, batch_start_timestamp, sample_rate_hz, calculated_timestamp, x, y, z, received_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     // Batch insert for sensor readings (much faster)
-    db.insertReadingsBatch = db.transaction((batchId, batchStartTimestamp, sampleRateHz, samples) => {
+    db.insertReadingsBatch = db.transaction((batchId, batchStartTimestamp, sampleRateHz, samples, receivedAt) => {
         for (let i = 0; i < samples.length; i++) {
             const calculatedTimestamp = batchStartTimestamp + Math.floor(i * 1000 / sampleRateHz);
-            const [x, y, z] = samples[i];  // samples are [x, y, z] arrays
-            db.insertReading.run(batchId, i, calculatedTimestamp, x, y, z);
+            const [x, y, z] = samples[i];
+            db.insertReading.run(batchId, i, batchStartTimestamp, sampleRateHz, calculatedTimestamp, x, y, z, receivedAt);
         }
     });
 
-    console.log('[SQLite] Database initialized with new schema');
+    console.log(`[SQLite] Database initialized (next batch_id: ${batchCounter})`);
     return db;
 }
 
@@ -173,19 +166,10 @@ function handleAlert(message) {
 function handleTelemetry(message) {
     const data = JSON.parse(message.toString());
     const receivedAt = Date.now();
-
-    // Insert batch metadata
-    const batchResult = db.insertBatch.run(
-        data.ts,
-        data.rate,
-        data.n,
-        receivedAt
-    );
-
-    const batchId = batchResult.lastInsertRowid;
+    const batchId = batchCounter++;
 
     // Insert all sensor readings in a transaction (fast)
-    db.insertReadingsBatch(batchId, data.ts, data.rate, data.d);
+    db.insertReadingsBatch(batchId, data.ts, data.rate, data.d, receivedAt);
 
     console.log(`[Telemetry] Batch stored: ${data.n} samples (batch_id: ${batchId})`);
 }

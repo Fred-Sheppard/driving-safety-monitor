@@ -92,16 +92,18 @@ switch (command) {
     case 'batches':
         console.log('\nRecent telemetry batches (last 10):\n');
         const batches = db.prepare(`
-            SELECT id, batch_start_timestamp, sample_rate_hz, sample_count, created_at
-            FROM telemetry_batches
-            ORDER BY created_at DESC
+            SELECT batch_id, batch_start_timestamp, sample_rate_hz,
+                   COUNT(*) as sample_count, MIN(created_at) as created_at
+            FROM sensor_readings
+            GROUP BY batch_id
+            ORDER BY batch_id DESC
             LIMIT 10
         `).all();
         if (batches.length === 0) {
             console.log('  No telemetry batches recorded yet.');
         } else {
             batches.forEach(row => {
-                console.log(`[${row.created_at}] Batch #${row.id}: ${row.sample_count} samples @ ${row.sample_rate_hz}Hz`);
+                console.log(`[${row.created_at}] Batch #${row.batch_id}: ${row.sample_count} samples @ ${row.sample_rate_hz}Hz`);
             });
         }
         break;
@@ -131,7 +133,7 @@ switch (command) {
         const alertCount = db.prepare('SELECT COUNT(*) as count FROM alerts').get();
         const crashCount = db.prepare("SELECT COUNT(*) as count FROM alerts WHERE type = 'crash'").get();
         const warningCount = db.prepare("SELECT COUNT(*) as count FROM alerts WHERE type = 'warning'").get();
-        const batchCount = db.prepare('SELECT COUNT(*) as count FROM telemetry_batches').get();
+        const batchCount = db.prepare('SELECT COUNT(DISTINCT batch_id) as count FROM sensor_readings').get();
         const readingCount = db.prepare('SELECT COUNT(*) as count FROM sensor_readings').get();
 
         console.log('  Alerts:');
@@ -143,9 +145,9 @@ switch (command) {
         console.log(`    Batches:  ${batchCount.count}`);
         console.log(`    Readings: ${readingCount.count}`);
 
-        if (batchCount.count > 0) {
+        if (readingCount.count > 0) {
             const latestBatch = db.prepare(`
-                SELECT created_at FROM telemetry_batches ORDER BY created_at DESC LIMIT 1
+                SELECT created_at FROM sensor_readings ORDER BY id DESC LIMIT 1
             `).get();
             console.log(`    Latest:   ${latestBatch.created_at}`);
         }
