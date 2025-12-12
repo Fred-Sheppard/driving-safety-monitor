@@ -8,6 +8,11 @@
  * Topics:
  *   - driving/alerts: Crash and warning events (QoS 1)
  *   - driving/telemetry: Batched sensor readings (QoS 0)
+ *
+ * JSON Formats:
+ *   Alerts:  {"type":"warning","event":"harsh_braking","ts":12345,"x":0.1,"y":-4.5}
+ *   Crash:   {"type":"crash","ts":12345,"mag":8.5}
+ *   Batch:   {"ts":12345,"rate":100,"n":500,"d":[[x,y,z],[x,y,z],...]}
  */
 
 const mqtt = require('mqtt');
@@ -56,7 +61,8 @@ function initDatabase() {
             event TEXT,                   -- 'harsh_braking' or 'harsh_acceleration' (for warnings)
             device_timestamp INTEGER,     -- timestamp from device (tick count)
             accel_magnitude REAL,         -- for crash events
-            accel_y REAL,                 -- for warning events
+            accel_x REAL,                 -- x acceleration (for warnings)
+            accel_y REAL,                 -- y acceleration (for warnings)
             received_at INTEGER NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
@@ -93,8 +99,8 @@ function initDatabase() {
 
     // Prepare insert statements
     db.insertAlert = db.prepare(`
-        INSERT INTO alerts (type, event, device_timestamp, accel_magnitude, accel_y, received_at)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO alerts (type, event, device_timestamp, accel_magnitude, accel_x, accel_y, received_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
 
     db.insertBatch = db.prepare(`
@@ -111,7 +117,8 @@ function initDatabase() {
     db.insertReadingsBatch = db.transaction((batchId, batchStartTimestamp, sampleRateHz, samples) => {
         for (let i = 0; i < samples.length; i++) {
             const calculatedTimestamp = batchStartTimestamp + Math.floor(i * 1000 / sampleRateHz);
-            db.insertReading.run(batchId, i, calculatedTimestamp, samples[i].x, samples[i].y, samples[i].z);
+            const [x, y, z] = samples[i];  // samples are [x, y, z] arrays
+            db.insertReading.run(batchId, i, calculatedTimestamp, x, y, z);
         }
     });
 
@@ -123,8 +130,8 @@ function initDatabase() {
  * Handle alert message (driving/alerts topic)
  *
  * Expected JSON format:
- * Warning: {"type":"warning","event":"harsh_braking","timestamp":12345,"accel_y":-4.5}
- * Crash:   {"type":"crash","timestamp":12345,"accel_magnitude":15.2}
+ * Warning: {"type":"warning","event":"harsh_braking","ts":12345,"x":0.1,"y":-4.5}
+ * Crash:   {"type":"crash","ts":12345,"mag":8.5}
  */
 function handleAlert(message) {
     const data = JSON.parse(message.toString());
@@ -134,22 +141,24 @@ function handleAlert(message) {
         const result = db.insertAlert.run(
             'crash',
             null,
-            data.timestamp,
-            data.accel_magnitude,
+            data.ts,
+            data.mag,
+            null,
             null,
             receivedAt
         );
-        console.log(`[Alert] CRASH detected! magnitude=${data.accel_magnitude} (id: ${result.lastInsertRowid})`);
+        console.log(`[Alert] CRASH detected! magnitude=${data.mag} (id: ${result.lastInsertRowid})`);
     } else if (data.type === 'warning') {
         const result = db.insertAlert.run(
             'warning',
             data.event,
-            data.timestamp,
+            data.ts,
             null,
-            data.accel_y,
+            data.x,
+            data.y,
             receivedAt
         );
-        console.log(`[Alert] WARNING: ${data.event} accel_y=${data.accel_y} (id: ${result.lastInsertRowid})`);
+        console.log(`[Alert] WARNING: ${data.event} x=${data.x} y=${data.y} (id: ${result.lastInsertRowid})`);
     } else {
         console.warn(`[Alert] Unknown alert type: ${data.type}`);
     }
@@ -159,12 +168,7 @@ function handleAlert(message) {
  * Handle telemetry batch (driving/telemetry topic)
  *
  * Expected JSON format:
- * {
- *   "batch_start_timestamp": 12340000,
- *   "sample_rate_hz": 100,
- *   "sample_count": 500,
- *   "samples": [{"x":0.01,"y":-9.81,"z":0.02}, ...]
- * }
+ * {"ts":12345,"rate":100,"n":500,"d":[[x,y,z],[x,y,z],...]}
  */
 function handleTelemetry(message) {
     const data = JSON.parse(message.toString());
@@ -172,18 +176,18 @@ function handleTelemetry(message) {
 
     // Insert batch metadata
     const batchResult = db.insertBatch.run(
-        data.batch_start_timestamp,
-        data.sample_rate_hz,
-        data.sample_count,
+        data.ts,
+        data.rate,
+        data.n,
         receivedAt
     );
 
     const batchId = batchResult.lastInsertRowid;
 
     // Insert all sensor readings in a transaction (fast)
-    db.insertReadingsBatch(batchId, data.batch_start_timestamp, data.sample_rate_hz, data.samples);
+    db.insertReadingsBatch(batchId, data.ts, data.rate, data.d);
 
-    console.log(`[Telemetry] Batch stored: ${data.sample_count} samples (batch_id: ${batchId})`);
+    console.log(`[Telemetry] Batch stored: ${data.n} samples (batch_id: ${batchId})`);
 }
 
 /**

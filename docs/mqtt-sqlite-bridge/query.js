@@ -35,7 +35,7 @@ switch (command) {
     case 'alerts':
         console.log('\nRecent alerts (last 20):\n');
         const alerts = db.prepare(`
-            SELECT id, type, event, device_timestamp, accel_magnitude, accel_y, created_at
+            SELECT id, type, event, device_timestamp, accel_magnitude, accel_x, accel_y, created_at
             FROM alerts
             ORDER BY created_at DESC
             LIMIT 20
@@ -45,9 +45,9 @@ switch (command) {
         } else {
             alerts.forEach(row => {
                 if (row.type === 'crash') {
-                    console.log(`[${row.created_at}] CRASH - magnitude: ${row.accel_magnitude}`);
+                    console.log(`[${row.created_at}] CRASH - mag: ${row.accel_magnitude}`);
                 } else {
-                    console.log(`[${row.created_at}] WARNING: ${row.event} - accel_y: ${row.accel_y}`);
+                    console.log(`[${row.created_at}] WARNING: ${row.event} - x: ${row.accel_x}, y: ${row.accel_y}`);
                 }
             });
         }
@@ -66,7 +66,7 @@ switch (command) {
             console.log('  No crash events recorded.');
         } else {
             crashes.forEach(row => {
-                console.log(`[${row.created_at}] Magnitude: ${row.accel_magnitude} (device_ts: ${row.device_timestamp})`);
+                console.log(`[${row.created_at}] Magnitude: ${row.accel_magnitude} (ts: ${row.device_timestamp})`);
             });
         }
         break;
@@ -74,7 +74,7 @@ switch (command) {
     case 'warnings':
         console.log('\nWarning events:\n');
         const warnings = db.prepare(`
-            SELECT id, event, device_timestamp, accel_y, created_at
+            SELECT id, event, device_timestamp, accel_x, accel_y, created_at
             FROM alerts
             WHERE type = 'warning'
             ORDER BY created_at DESC
@@ -84,7 +84,7 @@ switch (command) {
             console.log('  No warning events recorded.');
         } else {
             warnings.forEach(row => {
-                console.log(`[${row.created_at}] ${row.event} - accel_y: ${row.accel_y}`);
+                console.log(`[${row.created_at}] ${row.event} - x: ${row.accel_x}, y: ${row.accel_y}`);
             });
         }
         break;
