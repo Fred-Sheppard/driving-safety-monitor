@@ -8,7 +8,7 @@
 
 static const char *TAG = "sensor";
 
-sensor_reading_t read_imu(void)
+inline sensor_reading_t read_imu(void)
 {
     // TODO: Niall: Implement actual I2C read from IMU
     sensor_reading_t reading = {0, 0, 0};
@@ -29,10 +29,14 @@ static sensor_reading_t read_mock_imu(void)
         .z = 9.81f + 0.05f * sinf(tick * 0.1f) // Gravity with slight bounce
     };
 
-    // Every ~500 ticks (~5 sec), simulate a harder event
-    if (tick % 500 == 0)
+    // 1000 ticks ~= 10 seconds
+    if (tick % 1000 == 0)
     {
-        reading.y = -2.0f; // Moderate braking
+        reading.y = -9.0f; // crash
+    }
+    else if (tick % 500 == 0)
+    {
+        reading.y = 3.6f; // Moderate braking
     }
 
     return reading;

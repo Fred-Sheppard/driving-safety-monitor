@@ -27,6 +27,8 @@
 #define MQTT_TOPIC_TELEMETRY "driving/telemetry"
 #define MQTT_QOS_ALERTS 1    // At-least-once for critical alerts
 #define MQTT_QOS_TELEMETRY 0 // At-most-once for bulk telemetry
+// Nothing needs QOS 2: Exactly once
+// Repeated alerts or commands are not an issue
 
 #define DEFAULT_CRASH_THRESHOLD_G 8.0f
 #define DEFAULT_HARSH_BRAKING_THRESHOLD_G 4.0f
