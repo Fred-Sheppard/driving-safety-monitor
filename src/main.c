@@ -34,7 +34,12 @@ void app_main(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
-
+    // 1.5. (cba changing all)
+    if (sensor_i2c_init() != ESP_OK) {
+        ESP_LOGE(TAG, "I2C init failed");
+        return;
+    }
+    ESP_LOGI(TAG, "I2C init successful");
     // 2. Create queues
     mqtt_queue = xQueueCreate(MQTT_QUEUE_SIZE, sizeof(mqtt_message_t));
     batch_queue = xQueueCreate(BATCH_QUEUE_SIZE, sizeof(sensor_batch_t));
