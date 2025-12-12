@@ -21,6 +21,11 @@ QueueHandle_t command_queue = NULL;
 
 static void send_mock_data(void);
 
+// TODO:
+// Send device ID with MQTT
+// Include queue name in warnings and errors
+// Touchscreen
+
 void app_main(void)
 {
     ESP_LOGI(TAG, "Driving Safety Monitor starting...");
@@ -35,7 +40,8 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
     // 1.5. (cba changing all)
-    if (sensor_i2c_init() != ESP_OK) {
+    if (sensor_i2c_init() != ESP_OK)
+    {
         ESP_LOGE(TAG, "I2C init failed");
         return;
     }

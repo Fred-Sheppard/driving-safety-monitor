@@ -18,8 +18,8 @@
 #define PROCESSING_TASK_PRIORITY 4
 #define MQTT_TASK_PRIORITY 2
 
-#define WIFI_SSID "Eurona Fibre_FS 2.4"
-#define WIFI_PASSWORD "09636365104495936476"
+#define WIFI_SSID "YOUR_WIFI_NAME"
+#define WIFI_PASSWORD "WIFI_PASSWORD"
 #define WIFI_MAXIMUM_RETRY 10
 
 #define MQTT_BROKER_URI "mqtt://alderaan.software-engineering.ie:1883"

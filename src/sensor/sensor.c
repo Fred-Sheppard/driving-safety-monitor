@@ -16,33 +16,18 @@ static const char *TAG = "sensor";
 #define MOCK_GRAVITY_VARIATION 0.05f
 #define MOCK_BRAKE_EVENT_TICKS 500
 #define MOCK_BRAKE_FORCE -2.0f
+
+static sensor_reading_t read_mock_imu(void);
 #endif
 
-#ifdef MOCK_SENSOR_DATA
-static sensor_reading_t read_mock_imu(void) {
-    static uint32_t tick = 0;
-    tick++;
-
-    sensor_reading_t r = {
-        .x = MOCK_LATERAL_AMPLITUDE * sinf(tick * 0.05f),
-        .y = MOCK_FORWARD_AMPLITUDE * sinf(tick * 0.02f),
-        .z = MOCK_GRAVITY_BASE + MOCK_GRAVITY_VARIATION * sinf(tick * 0.1f)
-    };
-
-    if (tick % MOCK_BRAKE_EVENT_TICKS == 0) {
-        r.y = MOCK_BRAKE_FORCE;
-        ESP_LOGI(TAG, "Mock brake event");
-    }
-    return r;
-}
-#endif
-
-esp_err_t sensor_i2c_init(void) {
+esp_err_t sensor_i2c_init(void)
+{
     ESP_ERROR_CHECK(i2c_bus_init());
     return mpu6050_init();
 }
 
-sensor_reading_t read_imu(void) {
+sensor_reading_t read_imu(void)
+{
 #ifndef MOCK_SENSOR_DATA
     float ax, ay, az;
     mpu6050_read_accel(&ax, &ay, &az);
@@ -52,10 +37,32 @@ sensor_reading_t read_imu(void) {
 #endif
 }
 
-void sensor_task(void *pvParameters) {
+#ifdef MOCK_SENSOR_DATA
+static sensor_reading_t read_mock_imu(void)
+{
+    static uint32_t tick = 0;
+    tick++;
+
+    sensor_reading_t r = {
+        .x = MOCK_LATERAL_AMPLITUDE * sinf(tick * 0.05f),
+        .y = MOCK_FORWARD_AMPLITUDE * sinf(tick * 0.02f),
+        .z = MOCK_GRAVITY_BASE + MOCK_GRAVITY_VARIATION * sinf(tick * 0.1f)};
+
+    if (tick % MOCK_BRAKE_EVENT_TICKS == 0)
+    {
+        r.y = MOCK_BRAKE_FORCE;
+        ESP_LOGI(TAG, "Mock brake event");
+    }
+    return r;
+}
+#endif
+
+void sensor_task(void *pvParameters)
+{
     ESP_LOGI(TAG, "Sensor task running");
 
-    while (1) {
+    while (1)
+    {
         sensor_reading_t r = read_imu();
 
         if (xQueueSend(sensor_queue, &r, 0) != pdTRUE)
