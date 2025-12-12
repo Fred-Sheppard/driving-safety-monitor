@@ -20,6 +20,15 @@ typedef enum {
     WARNING_HARSH_CORNERING
 } warning_event_t;
 
+static inline const char *warning_event_to_string(warning_event_t event) {
+    switch (event) {
+        case WARNING_HARSH_BRAKING:   return "harsh_braking";
+        case WARNING_HARSH_ACCEL:     return "harsh_accel";
+        case WARNING_HARSH_CORNERING: return "harsh_cornering";
+        default:                      return "unknown";
+    }
+}
+
 // Warning data structure
 typedef struct {
     warning_event_t event;

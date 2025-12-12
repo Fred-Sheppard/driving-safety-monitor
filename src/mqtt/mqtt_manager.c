@@ -1,4 +1,5 @@
 #include "mqtt_manager.h"
+#include "serialize.h"
 #include "config.h"
 #include "message_types.h"
 
@@ -6,7 +7,7 @@
 #include "freertos/task.h"
 #include "mqtt_client.h"
 #include "esp_log.h"
-#include "cJSON.h"
+#include <string.h>
 
 static const char *TAG = "mqtt_manager";
 
@@ -14,39 +15,10 @@ static esp_mqtt_client_handle_t s_mqtt_client = NULL;
 static bool s_mqtt_connected = false;
 
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
-                               int32_t event_id, void *event_data) {
-    esp_mqtt_event_handle_t event = event_data;
+                               int32_t event_id, void *event_data);
 
-    switch ((esp_mqtt_event_id_t)event_id) {
-        case MQTT_EVENT_CONNECTED:
-            ESP_LOGI(TAG, "MQTT connected to broker");
-            s_mqtt_connected = true;
-            break;
-
-        case MQTT_EVENT_DISCONNECTED:
-            ESP_LOGW(TAG, "MQTT disconnected from broker");
-            s_mqtt_connected = false;
-            break;
-
-        case MQTT_EVENT_PUBLISHED:
-            ESP_LOGD(TAG, "Message published, msg_id=%d", event->msg_id);
-            break;
-
-        case MQTT_EVENT_ERROR:
-            ESP_LOGE(TAG, "MQTT error occurred");
-            if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT) {
-                ESP_LOGE(TAG, "Transport error: %s",
-                         strerror(event->error_handle->esp_transport_sock_errno));
-            }
-            break;
-
-        default:
-            ESP_LOGD(TAG, "Other MQTT event id: %d", event->event_id);
-            break;
-    }
-}
-
-esp_err_t mqtt_manager_init(void) {
+esp_err_t mqtt_manager_init(void)
+{
     esp_mqtt_client_config_t mqtt_cfg = {
         .broker = {
             .address = {
@@ -63,7 +35,8 @@ esp_err_t mqtt_manager_init(void) {
     };
 
     s_mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
-    if (s_mqtt_client == NULL) {
+    if (s_mqtt_client == NULL)
+    {
         ESP_LOGE(TAG, "Failed to initialize MQTT client");
         return ESP_FAIL;
     }
@@ -75,122 +48,76 @@ esp_err_t mqtt_manager_init(void) {
     return ESP_OK;
 }
 
-esp_err_t mqtt_manager_start(void) {
+esp_err_t mqtt_manager_start(void)
+{
     return esp_mqtt_client_start(s_mqtt_client);
 }
 
-bool mqtt_manager_is_connected(void) {
+bool mqtt_manager_is_connected(void)
+{
     return s_mqtt_connected;
 }
 
-/**
- * @brief Serialize alert message to JSON
- * @param msg Alert message structure
- * @return Allocated JSON string (caller must free with cJSON_free)
- */
-static char *serialize_alert_to_json(const mqtt_message_t *msg) {
-    cJSON *root = cJSON_CreateObject();
-    if (root == NULL) {
-        return NULL;
-    }
+static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
+                               int32_t event_id, void *event_data)
+{
+    esp_mqtt_event_handle_t event = event_data;
 
-    if (msg->type == MSG_WARNING) {
-        cJSON_AddStringToObject(root, "type", "warning");
+    switch ((esp_mqtt_event_id_t)event_id)
+    {
+    case MQTT_EVENT_CONNECTED:
+        ESP_LOGI(TAG, "MQTT connected to broker");
+        s_mqtt_connected = true;
+        break;
 
-        const char *event_str = (msg->data.warning.event == WARNING_HARSH_BRAKING)
-                                    ? "harsh_braking"
-                                    : "harsh_acceleration";
-        cJSON_AddStringToObject(root, "event", event_str);
-        cJSON_AddNumberToObject(root, "timestamp", msg->data.warning.timestamp);
-        cJSON_AddNumberToObject(root, "accel_y", msg->data.warning.accel_y);
+    case MQTT_EVENT_DISCONNECTED:
+        ESP_LOGW(TAG, "MQTT disconnected from broker");
+        s_mqtt_connected = false;
+        break;
 
-    } else if (msg->type == MSG_CRASH) {
-        cJSON_AddStringToObject(root, "type", "crash");
-        cJSON_AddNumberToObject(root, "timestamp", msg->data.crash.timestamp);
-        cJSON_AddNumberToObject(root, "accel_magnitude", msg->data.crash.accel_magnitude);
-    }
+    case MQTT_EVENT_PUBLISHED:
+        ESP_LOGD(TAG, "Message published, msg_id=%d", event->msg_id);
+        break;
 
-    char *json_str = cJSON_PrintUnformatted(root);
-    cJSON_Delete(root);
-
-    return json_str;
-}
-
-/**
- * @brief Serialize batch telemetry to JSON
- * @param batch Sensor batch structure
- * @return Allocated JSON string (caller must free with cJSON_free)
- */
-static char *serialize_batch_to_json(const sensor_batch_t *batch) {
-    cJSON *root = cJSON_CreateObject();
-    if (root == NULL) {
-        ESP_LOGE(TAG, "Failed to create root JSON object");
-        return NULL;
-    }
-
-    cJSON_AddNumberToObject(root, "ts", batch->batch_start_timestamp);
-    cJSON_AddNumberToObject(root, "rate", batch->sample_rate_hz);
-    cJSON_AddNumberToObject(root, "n", batch->sample_count);
-
-    // Use compact array format: [[x,y,z], [x,y,z], ...] instead of objects
-    cJSON *samples = cJSON_CreateArray();
-    if (samples == NULL) {
-        ESP_LOGE(TAG, "Failed to create samples array");
-        cJSON_Delete(root);
-        return NULL;
-    }
-
-    for (uint16_t i = 0; i < batch->sample_count; i++) {
-        // Create [x, y, z] array for each sample (more compact than object)
-        cJSON *sample = cJSON_CreateFloatArray(
-            (const float[]){
-                batch->samples[i].x,
-                batch->samples[i].y,
-                batch->samples[i].z
-            }, 3);
-
-        if (sample == NULL) {
-            ESP_LOGE(TAG, "Failed to create sample at index %d (free heap: %lu)",
-                     i, (unsigned long)esp_get_free_heap_size());
-            cJSON_Delete(root);
-            return NULL;
+    case MQTT_EVENT_ERROR:
+        ESP_LOGE(TAG, "MQTT error occurred");
+        if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT)
+        {
+            ESP_LOGE(TAG, "Transport error: %s",
+                     strerror(event->error_handle->esp_transport_sock_errno));
         }
+        break;
 
-        cJSON_AddItemToArray(samples, sample);
+    default:
+        ESP_LOGD(TAG, "Other MQTT event id: %d", event->event_id);
+        break;
     }
-
-    cJSON_AddItemToObject(root, "d", samples);
-
-    char *json_str = cJSON_PrintUnformatted(root);
-    if (json_str == NULL) {
-        ESP_LOGE(TAG, "Failed to print JSON (free heap: %lu)",
-                 (unsigned long)esp_get_free_heap_size());
-    }
-    cJSON_Delete(root);
-
-    return json_str;
 }
 
-void mqtt_task(void *pvParameters) {
+void mqtt_task(void *pvParameters)
+{
+    (void)pvParameters;
     mqtt_message_t alert_msg;
     sensor_batch_t batch;
-    char *json_payload = NULL;
+    const char *json_payload = NULL;
 
     ESP_LOGI(TAG, "mqtt_task started");
 
-    while (1) {
+    while (1)
+    {
         // Wait for MQTT connection before processing
-        if (!mqtt_manager_is_connected()) {
-            ESP_LOGW(TAG, "MQTT not connected, waiting...");
+        if (!mqtt_manager_is_connected())
+        {
             vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
         }
 
-        // Priority 1: Check for critical alerts first (non-blocking)
-        // Process ALL pending alerts before moving to batches
-        while (xQueueReceive(mqtt_queue, &alert_msg, 0) == pdTRUE) {
-            json_payload = serialize_alert_to_json(&alert_msg);
-            if (json_payload == NULL) {
+        // Priority 1: Process ALL pending alerts (non-blocking)
+        while (xQueueReceive(mqtt_queue, &alert_msg, 0) == pdTRUE)
+        {
+            json_payload = serialize_alert(&alert_msg);
+            if (json_payload == NULL)
+            {
                 ESP_LOGE(TAG, "Failed to serialize alert");
                 continue;
             }
@@ -199,27 +126,27 @@ void mqtt_task(void *pvParameters) {
                 s_mqtt_client,
                 MQTT_TOPIC_ALERTS,
                 json_payload,
-                0,  // auto-detect length
+                0,
                 MQTT_QOS_ALERTS,
-                0   // retain = false
-            );
+                0);
 
-            if (msg_id >= 0) {
-                ESP_LOGI(TAG, "Alert published, msg_id=%d, type=%s",
-                         msg_id,
+            if (msg_id >= 0)
+            {
+                ESP_LOGI(TAG, "Alert published: %s",
                          alert_msg.type == MSG_CRASH ? "CRASH" : "WARNING");
-            } else {
+            }
+            else
+            {
                 ESP_LOGE(TAG, "Failed to publish alert");
             }
-
-            cJSON_free(json_payload);
-            json_payload = NULL;
         }
 
         // Priority 2: Check for batch telemetry (blocking with 1s timeout)
-        if (xQueueReceive(batch_queue, &batch, pdMS_TO_TICKS(1000)) == pdTRUE) {
-            json_payload = serialize_batch_to_json(&batch);
-            if (json_payload == NULL) {
+        if (xQueueReceive(batch_queue, &batch, pdMS_TO_TICKS(1000)) == pdTRUE)
+        {
+            json_payload = serialize_batch(&batch);
+            if (json_payload == NULL)
+            {
                 ESP_LOGE(TAG, "Failed to serialize batch");
                 continue;
             }
@@ -230,18 +157,16 @@ void mqtt_task(void *pvParameters) {
                 json_payload,
                 0,
                 MQTT_QOS_TELEMETRY,
-                0
-            );
+                0);
 
-            if (msg_id >= 0) {
-                ESP_LOGI(TAG, "Batch published, msg_id=%d, samples=%d",
-                         msg_id, batch.sample_count);
-            } else {
+            if (msg_id >= 0)
+            {
+                ESP_LOGI(TAG, "Batch published, samples=%d", batch.sample_count);
+            }
+            else
+            {
                 ESP_LOGE(TAG, "Failed to publish batch");
             }
-
-            cJSON_free(json_payload);
-            json_payload = NULL;
         }
     }
 }
