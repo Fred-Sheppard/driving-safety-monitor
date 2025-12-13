@@ -17,6 +17,11 @@ unsigned long lastCountdownTime = 0;
 unsigned long stateStartTime = 0;
 SemaphoreHandle_t stateMutex = NULL;
 
+void drawMainScreen(void);
+void drawWarningCountdown(int countdown, bool fullRedraw);
+void drawCrashOccurred(void);
+void drawNormalWarning(void);
+
 void tft_init()
 {
   // Initialize the mutex if it's not already initialized
