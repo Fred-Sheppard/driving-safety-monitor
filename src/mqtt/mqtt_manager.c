@@ -7,9 +7,11 @@
 #include "freertos/task.h"
 #include "mqtt_client.h"
 #include "esp_log.h"
+#include "esp_mac.h"
 #include "trace/trace.h"
 #include "cJSON.h"
 #include <string.h>
+#include <stdio.h>
 
 static const char *TAG = "mqtt_manager";
 
@@ -22,14 +24,27 @@ static void handle_command_message(const char *data, int data_len);
 
 esp_err_t mqtt_manager_init(void)
 {
+    // Build unique client ID from MAC address
+    static char client_id[32];
+    uint8_t mac[6];
+    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+    snprintf(client_id, sizeof(client_id), "driving-%02X%02X%02X%02X%02X%02X",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+    ESP_LOGI(TAG, "MQTT client ID: %s", client_id);
+
     esp_mqtt_client_config_t mqtt_cfg = {
         .broker = {
             .address = {
                 .uri = MQTT_BROKER_URI,
             },
         },
+        .credentials = {
+            .client_id = client_id,
+        },
         .session = {
             .keepalive = 60,
+            .disable_clean_session = true,  // Persistent session - broker stores missed messages
         },
         .network = {
             .reconnect_timeout_ms = 5000,

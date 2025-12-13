@@ -31,7 +31,6 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                  disconn->reason, s_retry_num);
 
         // Always retry - never give up
-        vTaskDelay(pdMS_TO_TICKS(1000)); // Brief delay before retry
         esp_wifi_connect();
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
