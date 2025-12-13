@@ -27,9 +27,11 @@
 #define MQTT_TOPIC_ALERTS "driving/alerts"
 #define MQTT_TOPIC_TELEMETRY "driving/telemetry"
 #define MQTT_TOPIC_COMMANDS "driving/commands"
+#define MQTT_TOPIC_STATUS "driving/status"
 #define MQTT_QOS_ALERTS 1    // At-least-once for critical alerts
 #define MQTT_QOS_TELEMETRY 0 // At-most-once for bulk telemetry
 #define MQTT_QOS_COMMANDS 1  // At-least-once for commands
+#define MQTT_QOS_STATUS 1    // At-least-once for status updates
 // Nothing needs QOS 2: Exactly once
 // Repeated alerts or commands are not an issue
 

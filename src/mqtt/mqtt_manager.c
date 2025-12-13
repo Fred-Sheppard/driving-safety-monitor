@@ -2,6 +2,7 @@
 #include "serialize.h"
 #include "config.h"
 #include "message_types.h"
+#include "queue/bidir_queue.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -17,10 +18,12 @@ static const char *TAG = "mqtt_manager";
 
 static esp_mqtt_client_handle_t s_mqtt_client = NULL;
 static bool s_mqtt_connected = false;
+static bool s_status_requested = false;  // Flag to request initial status on connect
 
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
                                int32_t event_id, void *event_data);
 static void handle_command_message(const char *data, int data_len);
+static void publish_status(const threshold_status_t *status);
 
 esp_err_t mqtt_manager_init(void)
 {
@@ -44,7 +47,7 @@ esp_err_t mqtt_manager_init(void)
         },
         .session = {
             .keepalive = 60,
-            .disable_clean_session = true,  // Persistent session - broker stores missed messages
+            .disable_clean_session = true,
         },
         .network = {
             .reconnect_timeout_ms = 5000,
@@ -89,6 +92,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
         // Subscribe to commands topic
         esp_mqtt_client_subscribe(s_mqtt_client, MQTT_TOPIC_COMMANDS, MQTT_QOS_COMMANDS);
         ESP_LOGI(TAG, "Subscribed to %s", MQTT_TOPIC_COMMANDS);
+        // Request status publish on next mqtt_task iteration
+        s_status_requested = true;
         break;
 
     case MQTT_EVENT_DISCONNECTED:
@@ -101,7 +106,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
         break;
 
     case MQTT_EVENT_DATA:
-        // Check if this is a command message
         if (event->topic_len == strlen(MQTT_TOPIC_COMMANDS) &&
             strncmp(event->topic, MQTT_TOPIC_COMMANDS, event->topic_len) == 0)
         {
@@ -124,11 +128,46 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
     }
 }
 
+static void publish_status(const threshold_status_t *status)
+{
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddNumberToObject(root, "crash", status->crash);
+    cJSON_AddNumberToObject(root, "braking", status->braking);
+    cJSON_AddNumberToObject(root, "accel", status->accel);
+    cJSON_AddNumberToObject(root, "cornering", status->cornering);
+
+    char *json_str = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+
+    if (json_str)
+    {
+        int msg_id = esp_mqtt_client_publish(
+            s_mqtt_client,
+            MQTT_TOPIC_STATUS,
+            json_str,
+            0,
+            MQTT_QOS_STATUS,
+            0);
+
+        if (msg_id >= 0)
+        {
+            ESP_LOGI(TAG, "Status published: crash=%.1f braking=%.1f accel=%.1f cornering=%.1f",
+                     status->crash, status->braking, status->accel, status->cornering);
+        }
+        else
+        {
+            ESP_LOGE(TAG, "Failed to publish status");
+        }
+        free(json_str);
+    }
+}
+
 void mqtt_task(void *pvParameters)
 {
     (void)pvParameters;
     mqtt_message_t alert_msg;
     sensor_batch_t batch;
+    bidir_message_t bidir_msg;
     const char *json_payload = NULL;
 
     ESP_LOGI(TAG, "mqtt_task started");
@@ -136,11 +175,33 @@ void mqtt_task(void *pvParameters)
     while (1)
     {
         TRACE_TASK_RUN(TAG);
+
         // Wait for MQTT connection before processing
         if (!mqtt_manager_is_connected())
         {
             vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
+        }
+
+        // On connect: request current status from processing task
+        if (s_status_requested)
+        {
+            s_status_requested = false;
+            bidir_message_t status_req = {
+                .direction = BIDIR_INBOUND,
+                .type = BIDIR_CMD_GET_STATUS
+            };
+            bidir_queue_push(&status_req);
+            ESP_LOGI(TAG, "Requested initial status");
+        }
+
+        // Priority 0: Process outbound status responses from bidir queue
+        while (bidir_queue_pop(BIDIR_OUTBOUND, &bidir_msg))
+        {
+            if (bidir_msg.type == BIDIR_RESP_STATUS)
+            {
+                publish_status(&bidir_msg.data.status);
+            }
         }
 
         // Priority 1: Process ALL pending alerts (non-blocking)
@@ -208,7 +269,6 @@ void mqtt_task(void *pvParameters)
  */
 static void handle_command_message(const char *data, int data_len)
 {
-    // Null-terminate the data for parsing
     char *json_str = malloc(data_len + 1);
     if (!json_str)
     {
@@ -228,30 +288,44 @@ static void handle_command_message(const char *data, int data_len)
     }
 
     cJSON *cmd_obj = cJSON_GetObjectItem(root, "cmd");
-    cJSON *type_obj = cJSON_GetObjectItem(root, "type");
-    cJSON *value_obj = cJSON_GetObjectItem(root, "value");
 
-    if (!cmd_obj || !type_obj || !value_obj)
+    if (cmd_obj && strcmp(cmd_obj->valuestring, "get_status") == 0)
     {
-        ESP_LOGE(TAG, "Command missing required fields");
-        cJSON_Delete(root);
-        return;
+        // Request status
+        bidir_message_t msg = {
+            .direction = BIDIR_INBOUND,
+            .type = BIDIR_CMD_GET_STATUS
+        };
+        bidir_queue_push(&msg);
+        ESP_LOGI(TAG, "Status request queued");
     }
-
-    if (strcmp(cmd_obj->valuestring, "set_threshold") == 0)
+    else if (cmd_obj && strcmp(cmd_obj->valuestring, "set_threshold") == 0)
     {
-        command_t cmd;
-        cmd.value = (float)value_obj->valuedouble;
+        cJSON *type_obj = cJSON_GetObjectItem(root, "type");
+        cJSON *value_obj = cJSON_GetObjectItem(root, "value");
+
+        if (!type_obj || !value_obj)
+        {
+            ESP_LOGE(TAG, "set_threshold missing type or value");
+            cJSON_Delete(root);
+            return;
+        }
+
+        bidir_message_t msg = {
+            .direction = BIDIR_INBOUND,
+            .type = BIDIR_CMD_SET_THRESHOLD,
+            .data.set_threshold.value = (float)value_obj->valuedouble
+        };
 
         const char *type = type_obj->valuestring;
         if (strcmp(type, "crash") == 0)
-            cmd.type = CMD_SET_CRASH_THRESHOLD;
+            msg.data.set_threshold.threshold = THRESHOLD_CRASH;
         else if (strcmp(type, "braking") == 0)
-            cmd.type = CMD_SET_BRAKING_THRESHOLD;
+            msg.data.set_threshold.threshold = THRESHOLD_BRAKING;
         else if (strcmp(type, "accel") == 0)
-            cmd.type = CMD_SET_ACCEL_THRESHOLD;
+            msg.data.set_threshold.threshold = THRESHOLD_ACCEL;
         else if (strcmp(type, "cornering") == 0)
-            cmd.type = CMD_SET_CORNERING_THRESHOLD;
+            msg.data.set_threshold.threshold = THRESHOLD_CORNERING;
         else
         {
             ESP_LOGW(TAG, "Unknown threshold type: %s", type);
@@ -259,15 +333,18 @@ static void handle_command_message(const char *data, int data_len)
             return;
         }
 
-        // Queue command for processing task
-        if (xQueueSend(command_queue, &cmd, 0) != pdTRUE)
+        if (bidir_queue_push(&msg))
         {
-            ESP_LOGW(TAG, "Command queue full");
+            ESP_LOGI(TAG, "Command queued: set %s threshold to %.1f", type, msg.data.set_threshold.value);
         }
         else
         {
-            ESP_LOGI(TAG, "Command queued: set %s threshold to %.1f", type, cmd.value);
+            ESP_LOGW(TAG, "Bidir queue full");
         }
+    }
+    else
+    {
+        ESP_LOGW(TAG, "Unknown command");
     }
 
     cJSON_Delete(root);

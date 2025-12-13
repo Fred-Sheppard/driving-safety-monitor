@@ -67,24 +67,54 @@ typedef struct {
     sensor_reading_t samples[LOG_BATCH_SIZE];
 } sensor_batch_t;
 
-// Command types for remote configuration
+// Threshold types (used by commands and status)
 typedef enum {
-    CMD_SET_CRASH_THRESHOLD,
-    CMD_SET_BRAKING_THRESHOLD,
-    CMD_SET_ACCEL_THRESHOLD,
-    CMD_SET_CORNERING_THRESHOLD
-} command_type_t;
+    THRESHOLD_CRASH,
+    THRESHOLD_BRAKING,
+    THRESHOLD_ACCEL,
+    THRESHOLD_CORNERING
+} threshold_type_t;
 
-// Command structure (received via command_queue)
+// Bidirectional message direction
+typedef enum {
+    BIDIR_INBOUND,   // Command from dashboard
+    BIDIR_OUTBOUND   // Response/status to dashboard
+} bidir_direction_t;
+
+// Bidirectional message types
+typedef enum {
+    BIDIR_CMD_SET_THRESHOLD,  // Inbound: set a threshold
+    BIDIR_CMD_GET_STATUS,     // Inbound: request current status
+    BIDIR_RESP_STATUS         // Outbound: current thresholds
+} bidir_msg_type_t;
+
+// Threshold status (all current values)
 typedef struct {
-    command_type_t type;
-    float value;
-} command_t;
+    float crash;
+    float braking;
+    float accel;
+    float cornering;
+} threshold_status_t;
+
+// Bidirectional message structure
+typedef struct {
+    bidir_direction_t direction;
+    bidir_msg_type_t type;
+    union {
+        // For BIDIR_CMD_SET_THRESHOLD
+        struct {
+            threshold_type_t threshold;
+            float value;
+        } set_threshold;
+        // For BIDIR_RESP_STATUS
+        threshold_status_t status;
+    } data;
+} bidir_message_t;
 
 // External queue handles (defined in main.c)
 extern QueueHandle_t sensor_queue;
 extern QueueHandle_t batch_queue;
 extern QueueHandle_t mqtt_queue;
-extern QueueHandle_t command_queue;
+extern QueueHandle_t command_bidir_queue;  // Bidirectional command/response queue
 
 #endif // MESSAGE_TYPES_H

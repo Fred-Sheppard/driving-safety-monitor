@@ -12,6 +12,7 @@
 #include "sensor/sensor.h"
 #include "i2c/ili9488/ili9488.hpp"
 #include "trace/trace.h"
+#include "queue/bidir_queue.h"
 
 static const char *TAG = "main";
 
@@ -19,7 +20,7 @@ static const char *TAG = "main";
 QueueHandle_t sensor_queue = NULL;
 QueueHandle_t batch_queue = NULL;
 QueueHandle_t mqtt_queue = NULL;
-QueueHandle_t command_queue = NULL;
+QueueHandle_t command_bidir_queue = NULL;  // Placeholder for FreeRTOS queue (unused)
 
 static void send_mock_data(void);
 
@@ -52,10 +53,9 @@ void app_main(void)
     mqtt_queue = xQueueCreate(MQTT_QUEUE_SIZE, sizeof(mqtt_message_t));
     batch_queue = xQueueCreate(BATCH_QUEUE_SIZE, sizeof(sensor_batch_t));
     sensor_queue = xQueueCreate(SENSOR_QUEUE_SIZE, sizeof(sensor_reading_t));
-    command_queue = xQueueCreate(COMMAND_QUEUE_SIZE, sizeof(command_t));
+    bidir_queue_init();  // Initialize bidirectional command/response queue
 
-    if (mqtt_queue == NULL || batch_queue == NULL ||
-        sensor_queue == NULL || command_queue == NULL)
+    if (mqtt_queue == NULL || batch_queue == NULL || sensor_queue == NULL)
     {
         ESP_LOGE(TAG, "Failed to create queues");
         return;
