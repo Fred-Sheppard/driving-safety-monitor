@@ -71,7 +71,7 @@ void sensor_task(void *pvParameters)
         sensor_reading_t r = read_imu();
 
         if (xQueueSend(sensor_queue, &r, 0) != pdTRUE)
-            ESP_LOGW(TAG, "Queue full");
+            ESP_LOGW(TAG, "sensor_queue: failed to queue sensor reading. Queue full");
 
         vTaskDelay(pdMS_TO_TICKS(SENSOR_INTERVAL_MS));
     }

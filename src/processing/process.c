@@ -111,7 +111,7 @@ static void send_log(const sensor_reading_t *data)
         // Send to batch_queue (non-blocking)
         if (xQueueSend(batch_queue, &current_batch, 0) != pdTRUE)
         {
-            ESP_LOGW(TAG, "Failed to queue telemetry batch (queue full)");
+            ESP_LOGW(TAG, "batch_queue: failed to queue telemetry batch. Queue full");
         }
 
         // Reset for next batch

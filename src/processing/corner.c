@@ -46,7 +46,7 @@ void handle_harsh_cornering(const sensor_reading_t *data)
     // Send to mqtt_queue for immediate transmission
     if (xQueueSend(mqtt_queue, &msg, 0) != pdTRUE)
     {
-        ESP_LOGW(TAG, "Failed to queue harsh cornering alert");
+        ESP_LOGW(TAG, "mqtt_queue: failed to queue harsh cornering alert. Queue full");
     }
     else
     {

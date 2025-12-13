@@ -55,7 +55,7 @@ void handle_crash(const sensor_reading_t *data)
     // Send to mqtt_queue for immediate transmission
     if (xQueueSend(mqtt_queue, &msg, 0) != pdTRUE)
     {
-        ESP_LOGW(TAG, "Failed to queue crash alert");
+        ESP_LOGW(TAG, "mqtt_queue: failed to queue crash alert. Queue full");
     }
     else
     {
