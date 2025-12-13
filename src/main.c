@@ -62,22 +62,14 @@ void app_main(void)
     }
     ESP_LOGI(TAG, "Queues created successfully");
 
-    // 3. Initialize WiFi
+    // 3. Initialize WiFi (will keep retrying in background)
     ESP_ERROR_CHECK(wifi_manager_init());
 
-    // 4. Wait for WiFi connection (30 second timeout)
-    if (!wifi_manager_wait_connected(30000))
-    {
-        ESP_LOGE(TAG, "WiFi connection timeout");
-        return;
-    }
-    ESP_LOGI(TAG, "WiFi connected");
-
-    // 5. Initialize and start MQTT
+    // 4. Initialize and start MQTT (will connect when WiFi is ready)
     ESP_ERROR_CHECK(mqtt_manager_init());
     ESP_ERROR_CHECK(mqtt_manager_start());
-    ESP_LOGI(TAG, "MQTT client started");
-    
+    ESP_LOGI(TAG, "MQTT client initialized (waiting for WiFi)");
+
     // Initialize the display
     tft_init();
     // Stack needs to be large due to JSON serialization of batches
