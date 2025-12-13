@@ -1,8 +1,16 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-// Uncomment to use mock sensor data instead of real IMU
-// #define MOCK_SENSOR_DATA
+// Local configuration not tracked by git
+#include "config_local.h"
+
+#ifndef WIFI_SSID
+#error "WIFI_SSID must be defined in config_local.h"
+#endif
+
+#ifndef WIFI_PASSWORD
+#error "WIFI_PASSWORD must be defined in config_local.h"
+#endif
 
 #define IMU_SAMPLE_RATE_HZ 100
 #define SENSOR_INTERVAL_MS (1000 / IMU_SAMPLE_RATE_HZ)
@@ -19,8 +27,6 @@
 #define PROCESSING_TASK_PRIORITY 4
 #define MQTT_TASK_PRIORITY 2
 
-#define WIFI_SSID "YOUR_WIFI_NAME"
-#define WIFI_PASSWORD "WIFI_PASSWORD"
 #define WIFI_MAXIMUM_RETRY 10
 
 #define MQTT_BROKER_URI "mqtt://alderaan.software-engineering.ie:1883"
@@ -28,21 +34,26 @@
 #define MQTT_TOPIC_TELEMETRY "driving/telemetry"
 #define MQTT_TOPIC_COMMANDS "driving/commands"
 #define MQTT_TOPIC_STATUS "driving/status"
-#define MQTT_QOS_ALERTS 1    // At-least-once for critical alerts
-#define MQTT_QOS_TELEMETRY 0 // At-most-once for bulk telemetry
-#define MQTT_QOS_COMMANDS 1  // At-least-once for commands
-#define MQTT_QOS_STATUS 1    // At-least-once for status updates
-// Nothing needs QOS 2: Exactly once
-// Repeated alerts or commands are not an issue
+#define MQTT_QOS_ALERTS 1
+#define MQTT_QOS_TELEMETRY 0
+#define MQTT_QOS_COMMANDS 1
+#define MQTT_QOS_STATUS 1
 
 #define DEFAULT_CRASH_THRESHOLD_G 11.0f
 #define DEFAULT_HARSH_BRAKING_THRESHOLD_G 9.0f
 #define DEFAULT_HARSH_ACCEL_THRESHOLD_G 7.0f
 #define DEFAULT_HARSH_CORNERING_THRESHOLD_G 8.0f
 
-// Tracing configuration
-#define TRACE_CONTEXT_SWITCHES 0 // Log task execution (verbose)
-#define TRACE_STATS_ENABLED 0    // Print periodic runtime stats
-#define TRACE_STATS_INTERVAL_MS 5000
+#ifndef TRACE_CONTEXT_SWITCHES
+#define TRACE_CONTEXT_SWITCHES 0
+#endif
 
-#endif // CONFIG_H
+#ifndef TRACE_STATS_ENABLED
+#define TRACE_STATS_ENABLED 0
+#endif
+
+#ifndef TRACE_STATS_INTERVAL_MS
+#define TRACE_STATS_INTERVAL_MS 5000
+#endif
+
+#endif
