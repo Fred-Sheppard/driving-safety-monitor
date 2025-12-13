@@ -61,7 +61,7 @@ detector_config_t detectors[DETECTOR_COUNT] = {
         .is_crash = true,
         .check = check_crash,
         .get_value = get_crash_value,
-        .on_trigger = NULL,
+        .on_trigger = triggerWarningCountdown,
     },
     [DETECTOR_HARSH_BRAKING] = {
         .name = "harsh_braking",
@@ -70,7 +70,7 @@ detector_config_t detectors[DETECTOR_COUNT] = {
         .warning_event = WARNING_HARSH_BRAKING,
         .check = check_harsh_braking,
         .get_value = get_braking_value,
-        .on_trigger = NULL,
+        .on_trigger = triggerNormalWarning,
     },
     [DETECTOR_HARSH_ACCEL] = {
         .name = "harsh_accel",
@@ -79,7 +79,7 @@ detector_config_t detectors[DETECTOR_COUNT] = {
         .warning_event = WARNING_HARSH_ACCEL,
         .check = check_harsh_accel,
         .get_value = get_accel_value,
-        .on_trigger = NULL,
+        .on_trigger = triggerNormalWarning,
     },
     [DETECTOR_HARSH_CORNERING] = {
         .name = "harsh_cornering",
@@ -88,6 +88,6 @@ detector_config_t detectors[DETECTOR_COUNT] = {
         .warning_event = WARNING_HARSH_CORNERING,
         .check = check_harsh_cornering,
         .get_value = get_cornering_value,
-        .on_trigger = NULL,
+        .on_trigger = triggerNormalWarning,
     },
 };
