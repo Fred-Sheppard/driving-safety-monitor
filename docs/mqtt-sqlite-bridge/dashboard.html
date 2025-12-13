@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driving Safety Monitor</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #eee; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        h1 { text-align: center; margin-bottom: 20px; color: #00d4ff; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .card { background: #16213e; border-radius: 10px; padding: 20px; }
+        .stat-card { text-align: center; }
+        .stat-value { font-size: 2.5em; font-weight: bold; color: #00d4ff; }
+        .stat-label { color: #888; margin-top: 5px; }
+        .stat-card.warning .stat-value { color: #ffc107; }
+        .stat-card.danger .stat-value { color: #ff4757; }
+        .chart-container { height: 250px; position: relative; }
+        .alerts-list { max-height: 300px; overflow-y: auto; }
+        .alert-item { padding: 10px; border-bottom: 1px solid #2a2a4a; display: flex; justify-content: space-between; align-items: center; }
+        .alert-item:last-child { border-bottom: none; }
+        .alert-badge { padding: 4px 10px; border-radius: 15px; font-size: 0.8em; font-weight: bold; }
+        .alert-badge.crash { background: #ff4757; }
+        .alert-badge.warning { background: #ffc107; color: #000; }
+        .alert-time { color: #666; font-size: 0.85em; }
+        .refresh-btn { background: #00d4ff; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; color: #000; font-weight: bold; }
+        .refresh-btn:hover { background: #00b8e6; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        h2 { color: #00d4ff; font-size: 1.1em; }
+        .status { display: flex; align-items: center; gap: 8px; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #4caf50; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        /* Score dial styles */
+        .score-section { display: flex; justify-content: center; margin-bottom: 20px; }
+        .score-card { background: #16213e; border-radius: 15px; padding: 30px; text-align: center; min-width: 300px; }
+        .dial-container { position: relative; width: 200px; height: 120px; margin: 0 auto 15px; }
+        .dial-svg { width: 100%; height: 100%; }
+        .dial-bg { fill: none; stroke: #2a2a4a; stroke-width: 12; stroke-linecap: round; }
+        .dial-fill { fill: none; stroke-width: 12; stroke-linecap: round; transition: stroke-dashoffset 0.5s ease, stroke 0.5s ease; }
+        .score-value { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); font-size: 3em; font-weight: bold; }
+        .score-label { color: #888; font-size: 1.1em; margin-bottom: 10px; }
+        .score-breakdown { display: flex; justify-content: center; gap: 20px; margin-top: 15px; font-size: 0.85em; color: #888; }
+        .score-breakdown span { display: flex; align-items: center; gap: 5px; }
+        .penalty-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .penalty-dot.crash { background: #ff4757; }
+        .penalty-dot.warning { background: #ffc107; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Score penalties
+        const CRASH_PENALTY = 25;
+        const WARNING_PENALTY = 5;
+
+        function ScoreDial({ score, crashes, warnings }) {
+            // Arc goes from 180 to 0 degrees (left to right semicircle)
+            const radius = 80;
+            const circumference = Math.PI * radius; // Half circle
+            const scorePercent = Math.max(0, Math.min(100, score)) / 100;
+            const offset = circumference * (1 - scorePercent);
+
+            // Color based on score
+            let color = '#4caf50'; // Green
+            if (score < 50) color = '#ff4757'; // Red
+            else if (score < 75) color = '#ffc107'; // Yellow
+
+            return (
+                <div className="score-card">
+                    <div className="score-label">Driving Score</div>
+                    <div className="dial-container">
+                        <svg className="dial-svg" viewBox="0 0 200 120">
+                            {/* Background arc */}
+                            <path
+                                className="dial-bg"
+                                d="M 20 100 A 80 80 0 0 1 180 100"
+                            />
+                            {/* Filled arc */}
+                            <path
+                                className="dial-fill"
+                                d="M 20 100 A 80 80 0 0 1 180 100"
+                                style={{
+                                    stroke: color,
+                                    strokeDasharray: circumference,
+                                    strokeDashoffset: offset
+                                }}
+                            />
+                        </svg>
+                        <div className="score-value" style={{ color }}>{score}</div>
+                    </div>
+                    <div className="score-breakdown">
+                        <span><div className="penalty-dot crash"></div> {crashes} crashes (-{crashes * CRASH_PENALTY})</span>
+                        <span><div className="penalty-dot warning"></div> {warnings} warnings (-{warnings * WARNING_PENALTY})</span>
+                    </div>
+                </div>
+            );
+        }
+
+        function App() {
+            const [stats, setStats] = useState({ totalAlerts: 0, crashes: 0, warnings: 0, totalReadings: 0, totalBatches: 0 });
+            const [alerts, setAlerts] = useState([]);
+            const [readings, setReadings] = useState([]);
+            const chartRef = useRef(null);
+            const chartInstance = useRef(null);
+
+            // Calculate driving score
+            const score = Math.max(0, 100 - (stats.crashes * CRASH_PENALTY) - (stats.warnings * WARNING_PENALTY));
+
+            const fetchData = async () => {
+                try {
+                    const [statsRes, alertsRes, readingsRes] = await Promise.all([
+                        fetch('/api/stats'),
+                        fetch('/api/alerts?limit=20'),
+                        fetch('/api/readings/latest?limit=500')
+                    ]);
+                    setStats(await statsRes.json());
+                    setAlerts(await alertsRes.json());
+                    setReadings(await readingsRes.json());
+                } catch (err) {
+                    console.error('Fetch error:', err);
+                }
+            };
+
+            useEffect(() => {
+                fetchData();
+                const interval = setInterval(fetchData, 5000);
+                return () => clearInterval(interval);
+            }, []);
+
+            useEffect(() => {
+                if (!chartRef.current || readings.length === 0) return;
+
+                const ctx = chartRef.current.getContext('2d');
+                const labels = readings.map((_, i) => i);
+                const dataX = readings.map(r => r.x);
+                const dataY = readings.map(r => r.y);
+                const dataZ = readings.map(r => r.z);
+
+                if (chartInstance.current) {
+                    chartInstance.current.data.labels = labels;
+                    chartInstance.current.data.datasets[0].data = dataX;
+                    chartInstance.current.data.datasets[1].data = dataY;
+                    chartInstance.current.data.datasets[2].data = dataZ;
+                    chartInstance.current.update('none');
+                } else {
+                    chartInstance.current = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels,
+                            datasets: [
+                                { label: 'X', data: dataX, borderColor: '#ff6384', borderWidth: 1, pointRadius: 0 },
+                                { label: 'Y', data: dataY, borderColor: '#36a2eb', borderWidth: 1, pointRadius: 0 },
+                                { label: 'Z', data: dataZ, borderColor: '#4bc0c0', borderWidth: 1, pointRadius: 0 }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: false,
+                            scales: {
+                                x: { display: false },
+                                y: { grid: { color: '#2a2a4a' }, ticks: { color: '#888' } }
+                            },
+                            plugins: { legend: { labels: { color: '#eee' } } }
+                        }
+                    });
+                }
+            }, [readings]);
+
+            const formatTime = (timestamp) => {
+                if (!timestamp) return 'N/A';
+                return new Date(timestamp).toLocaleString();
+            };
+
+            return (
+                <div className="container">
+                    <div className="header">
+                        <h1>Driving Safety Monitor</h1>
+                        <div className="status">
+                            <div className="status-dot"></div>
+                            <span>Live</span>
+                            <button className="refresh-btn" onClick={fetchData}>Refresh</button>
+                        </div>
+                    </div>
+
+                    {/* Score Dial */}
+                    <div className="score-section">
+                        <ScoreDial score={score} crashes={stats.crashes} warnings={stats.warnings} />
+                    </div>
+
+                    <div className="grid">
+                        <div className="card stat-card">
+                            <div className="stat-value">{stats.totalBatches}</div>
+                            <div className="stat-label">Total Batches</div>
+                        </div>
+                        <div className="card stat-card">
+                            <div className="stat-value">{(stats.totalReadings / 1000).toFixed(1)}k</div>
+                            <div className="stat-label">Sensor Readings</div>
+                        </div>
+                        <div className="card stat-card warning">
+                            <div className="stat-value">{stats.warnings}</div>
+                            <div className="stat-label">Warnings</div>
+                        </div>
+                        <div className="card stat-card danger">
+                            <div className="stat-value">{stats.crashes}</div>
+                            <div className="stat-label">Crashes</div>
+                        </div>
+                    </div>
+
+                    <div className="grid" style={{ gridTemplateColumns: '2fr 1fr' }}>
+                        <div className="card">
+                            <h2>Accelerometer Data (Latest 500 samples)</h2>
+                            <div className="chart-container">
+                                <canvas ref={chartRef}></canvas>
+                            </div>
+                        </div>
+                        <div className="card">
+                            <h2>Recent Alerts</h2>
+                            <div className="alerts-list">
+                                {alerts.length === 0 ? (
+                                    <p style={{ color: '#666', padding: '20px', textAlign: 'center' }}>No alerts yet</p>
+                                ) : (
+                                    alerts.map(alert => (
+                                        <div key={alert.id} className="alert-item">
+                                            <div>
+                                                <span className={`alert-badge ${alert.type}`}>
+                                                    {alert.type === 'crash' ? 'CRASH' : alert.event?.replace('_', ' ').toUpperCase()}
+                                                </span>
+                                                {alert.type === 'crash' && <span style={{ marginLeft: 10 }}>mag: {alert.accel_magnitude?.toFixed(2)}</span>}
+                                                {alert.type === 'warning' && <span style={{ marginLeft: 10 }}>y: {alert.accel_y?.toFixed(2)}</span>}
+                                            </div>
+                                            <div className="alert-time">{formatTime(alert.received_at)}</div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
