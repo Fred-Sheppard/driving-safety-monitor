@@ -48,3 +48,12 @@ pio run --target clean
 - `SAMPLE_RATE_HZ`: 100 (10ms sampling interval)
 - `BATCH_SIZE`: 500 samples per batch
 - Batch transmission interval: ~5 seconds (500 samples / 100Hz)
+
+# Instructions
+
+- Try and keep functions and files short, and source directories small.
+  If the below thresholds are exceded, consider decomposing them.
+Thresholds:
+- Functions: 40 lines
+- Files: 150 lines
+- Directories: 4 source (.c/.cpp) files
