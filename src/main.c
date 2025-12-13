@@ -20,14 +20,7 @@ static const char *TAG = "main";
 QueueHandle_t sensor_queue = NULL;
 QueueHandle_t batch_queue = NULL;
 QueueHandle_t mqtt_queue = NULL;
-QueueHandle_t command_bidir_queue = NULL;  // Placeholder for FreeRTOS queue (unused)
-
-static void send_mock_data(void);
-
-// TODO:
-// Send device ID with MQTT
-// Include queue name in warnings and errors
-// Touchscreen
+QueueHandle_t command_bidir_queue = NULL; // Placeholder for FreeRTOS queue (unused)
 
 void app_main(void)
 {
@@ -53,7 +46,7 @@ void app_main(void)
     mqtt_queue = xQueueCreate(MQTT_QUEUE_SIZE, sizeof(mqtt_message_t));
     batch_queue = xQueueCreate(BATCH_QUEUE_SIZE, sizeof(sensor_batch_t));
     sensor_queue = xQueueCreate(SENSOR_QUEUE_SIZE, sizeof(sensor_reading_t));
-    bidir_queue_init();  // Initialize bidirectional command/response queue
+    bidir_queue_init(); // Initialize bidirectional command/response queue
 
     if (mqtt_queue == NULL || batch_queue == NULL || sensor_queue == NULL)
     {
