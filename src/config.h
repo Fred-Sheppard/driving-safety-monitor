@@ -15,11 +15,12 @@
 #define LOG_BATCH_SIZE 500
 
 #define SENSOR_TASK_PRIORITY 5
+#define SCREEN_TASK_PRIORITY 3
 #define PROCESSING_TASK_PRIORITY 4
 #define MQTT_TASK_PRIORITY 2
 
-#define WIFI_SSID "YOUR_WIFI_NAME"
-#define WIFI_PASSWORD "WIFI_PASSWORD"
+#define WIFI_SSID "Eurona Fibre_FS 2.4"
+#define WIFI_PASSWORD "09636365104495936476"
 #define WIFI_MAXIMUM_RETRY 10
 
 #define MQTT_BROKER_URI "mqtt://alderaan.software-engineering.ie:1883"
@@ -30,7 +31,7 @@
 // Nothing needs QOS 2: Exactly once
 // Repeated alerts or commands are not an issue
 
-#define DEFAULT_CRASH_THRESHOLD_G 13.0f
+#define DEFAULT_CRASH_THRESHOLD_G 11.0f
 #define DEFAULT_HARSH_BRAKING_THRESHOLD_G 9.0f
 #define DEFAULT_HARSH_ACCEL_THRESHOLD_G 7.0f
 #define DEFAULT_HARSH_CORNERING_THRESHOLD_G 8.0f

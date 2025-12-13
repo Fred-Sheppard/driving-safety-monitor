@@ -10,6 +10,7 @@
 #include "mqtt/mqtt_manager.h"
 #include "processing/process.h"
 #include "sensor/sensor.h"
+#include "i2c/ili9488/ili9488.hpp"
 
 static const char *TAG = "main";
 
@@ -75,15 +76,16 @@ void app_main(void)
     ESP_ERROR_CHECK(mqtt_manager_init());
     ESP_ERROR_CHECK(mqtt_manager_start());
     ESP_LOGI(TAG, "MQTT client started");
-
+    
+    // Initialize the display
+    tft_init();
     // Stack needs to be large due to JSON serialization of batches
     xTaskCreate(mqtt_task, "mqtt", 16384, NULL, MQTT_TASK_PRIORITY, NULL);
 
     xTaskCreate(processing_task, "process", 4096, NULL, PROCESSING_TASK_PRIORITY, NULL);
     xTaskCreate(sensor_task, "sensor", 4096, NULL, SENSOR_TASK_PRIORITY, NULL);
-
+    xTaskCreate(displayTask, "display", 8192, NULL, SCREEN_TASK_PRIORITY, NULL);
     ESP_LOGI(TAG, "Tasks created, system running");
-
     // TEMPORARY: Send mock data for testing
     // send_mock_data();
 }

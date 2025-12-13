@@ -1,6 +1,6 @@
 #include "sensor.h"
-#include "i2c_bus.h"
-#include "mpu6050.h"
+#include "i2c/i2c_bus.h"
+#include "i2c/mpu6050/mpu6050.h"
 #include "config.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
