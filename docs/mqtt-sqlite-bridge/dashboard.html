@@ -33,7 +33,9 @@
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         h2 { color: #00d4ff; font-size: 1.1em; margin-bottom: 15px; }
         .status { display: flex; align-items: center; gap: 8px; }
-        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #4caf50; animation: pulse 2s infinite; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .status-dot.connected { background: #4caf50; animation: pulse 2s infinite; }
+        .status-dot.disconnected { background: #ff4757; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 
         /* Score dial styles */
@@ -53,12 +55,17 @@
 
         /* Config panel styles */
         .config-panel { margin-bottom: 20px; }
+        .config-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .config-header h2 { margin-bottom: 0; }
+        .sync-status { font-size: 0.8em; color: #888; }
+        .sync-status.synced { color: #4caf50; }
         .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; }
         .config-item { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #1a1a2e; border-radius: 8px; }
         .config-item label { color: #ccc; font-size: 0.9em; }
         .config-controls { display: flex; align-items: center; gap: 10px; }
         .config-input { width: 70px; padding: 6px 10px; border: 1px solid #2a2a4a; border-radius: 5px; background: #0f0f1a; color: #eee; text-align: center; font-size: 1em; }
         .config-input:focus { outline: none; border-color: #00d4ff; }
+        .config-input.synced { border-color: #4caf50; }
         .config-unit { color: #666; font-size: 0.85em; }
         .config-btn { background: #00d4ff; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; color: #000; font-weight: bold; font-size: 0.85em; }
         .config-btn:hover { background: #00b8e6; }
@@ -76,14 +83,6 @@
         // Score penalties
         const CRASH_PENALTY = 25;
         const WARNING_PENALTY = 5;
-
-        // Default thresholds (from embedded config.h)
-        const DEFAULT_THRESHOLDS = {
-            crash: 11.0,
-            braking: 9.0,
-            accel: 7.0,
-            cornering: 8.0
-        };
 
         function ScoreDial({ score, crashes, warnings }) {
             const radius = 80;
@@ -114,9 +113,18 @@
             );
         }
 
-        function ThresholdConfig({ type, label, defaultValue }) {
-            const [value, setValue] = useState(defaultValue);
-            const [status, setStatus] = useState('idle'); // idle, sending, success, error
+        function ThresholdConfig({ type, label, deviceValue, onSend }) {
+            const [value, setValue] = useState(deviceValue);
+            const [status, setStatus] = useState('idle');
+            const prevDeviceValue = useRef(deviceValue);
+
+            // Update local value when device value changes (synced from device)
+            useEffect(() => {
+                if (deviceValue !== prevDeviceValue.current) {
+                    setValue(deviceValue);
+                    prevDeviceValue.current = deviceValue;
+                }
+            }, [deviceValue]);
 
             const sendThreshold = async () => {
                 setStatus('sending');
@@ -139,12 +147,8 @@
                 }
             };
 
-            const btnText = {
-                idle: 'Set',
-                sending: '...',
-                success: 'OK',
-                error: 'Err'
-            };
+            const btnText = { idle: 'Set', sending: '...', success: 'OK', error: 'Err' };
+            const isSynced = parseFloat(value) === deviceValue;
 
             return (
                 <div className="config-item">
@@ -152,7 +156,7 @@
                     <div className="config-controls">
                         <input
                             type="number"
-                            className="config-input"
+                            className={`config-input ${isSynced ? 'synced' : ''}`}
                             value={value}
                             onChange={(e) => setValue(e.target.value)}
                             min="0"
@@ -163,24 +167,38 @@
                         <button
                             className={`config-btn ${status}`}
                             onClick={sendThreshold}
-                            disabled={status === 'sending'}
+                            disabled={status === 'sending' || isSynced}
                         >
-                            {btnText[status]}
+                            {isSynced ? 'Synced' : btnText[status]}
                         </button>
                     </div>
                 </div>
             );
         }
 
-        function ConfigPanel() {
+        function ConfigPanel({ deviceStatus }) {
+            const { thresholds, lastUpdate, connected } = deviceStatus;
+
+            const formatLastUpdate = () => {
+                if (!lastUpdate) return 'Never';
+                const seconds = Math.floor((Date.now() - lastUpdate) / 1000);
+                if (seconds < 60) return `${seconds}s ago`;
+                return `${Math.floor(seconds / 60)}m ago`;
+            };
+
             return (
                 <div className="card config-panel">
-                    <h2>Detection Thresholds</h2>
+                    <div className="config-header">
+                        <h2>Detection Thresholds</h2>
+                        <span className={`sync-status ${connected ? 'synced' : ''}`}>
+                            {connected ? `Synced ${formatLastUpdate()}` : 'Waiting for device...'}
+                        </span>
+                    </div>
                     <div className="config-grid">
-                        <ThresholdConfig type="crash" label="Crash Detection" defaultValue={DEFAULT_THRESHOLDS.crash} />
-                        <ThresholdConfig type="braking" label="Harsh Braking" defaultValue={DEFAULT_THRESHOLDS.braking} />
-                        <ThresholdConfig type="accel" label="Harsh Acceleration" defaultValue={DEFAULT_THRESHOLDS.accel} />
-                        <ThresholdConfig type="cornering" label="Harsh Cornering" defaultValue={DEFAULT_THRESHOLDS.cornering} />
+                        <ThresholdConfig type="crash" label="Crash Detection" deviceValue={thresholds.crash} />
+                        <ThresholdConfig type="braking" label="Harsh Braking" deviceValue={thresholds.braking} />
+                        <ThresholdConfig type="accel" label="Harsh Acceleration" deviceValue={thresholds.accel} />
+                        <ThresholdConfig type="cornering" label="Harsh Cornering" deviceValue={thresholds.cornering} />
                     </div>
                 </div>
             );
@@ -190,6 +208,11 @@
             const [stats, setStats] = useState({ totalAlerts: 0, crashes: 0, warnings: 0, totalReadings: 0, totalBatches: 0 });
             const [alerts, setAlerts] = useState([]);
             const [readings, setReadings] = useState([]);
+            const [deviceStatus, setDeviceStatus] = useState({
+                connected: false,
+                thresholds: { crash: 11.0, braking: 9.0, accel: 7.0, cornering: 8.0 },
+                lastUpdate: null
+            });
             const chartRef = useRef(null);
             const chartInstance = useRef(null);
 
@@ -197,14 +220,16 @@
 
             const fetchData = async () => {
                 try {
-                    const [statsRes, alertsRes, readingsRes] = await Promise.all([
+                    const [statsRes, alertsRes, readingsRes, statusRes] = await Promise.all([
                         fetch('/api/stats'),
                         fetch('/api/alerts?limit=20'),
-                        fetch('/api/readings/latest?limit=500')
+                        fetch('/api/readings/latest?limit=500'),
+                        fetch('/api/device/status')
                     ]);
                     setStats(await statsRes.json());
                     setAlerts(await alertsRes.json());
                     setReadings(await readingsRes.json());
+                    setDeviceStatus(await statusRes.json());
                 } catch (err) {
                     console.error('Fetch error:', err);
                 }
@@ -212,7 +237,7 @@
 
             useEffect(() => {
                 fetchData();
-                const interval = setInterval(fetchData, 5000);
+                const interval = setInterval(fetchData, 3000);
                 return () => clearInterval(interval);
             }, []);
 
@@ -266,8 +291,8 @@
                     <div className="header">
                         <h1>Driving Safety Monitor</h1>
                         <div className="status">
-                            <div className="status-dot"></div>
-                            <span>Live</span>
+                            <div className={`status-dot ${deviceStatus.connected ? 'connected' : 'disconnected'}`}></div>
+                            <span>{deviceStatus.connected ? 'Device Online' : 'Device Offline'}</span>
                             <button className="refresh-btn" onClick={fetchData}>Refresh</button>
                         </div>
                     </div>
@@ -276,7 +301,7 @@
                         <ScoreDial score={score} crashes={stats.crashes} warnings={stats.warnings} />
                     </div>
 
-                    <ConfigPanel />
+                    <ConfigPanel deviceStatus={deviceStatus} />
 
                     <div className="grid">
                         <div className="card stat-card">

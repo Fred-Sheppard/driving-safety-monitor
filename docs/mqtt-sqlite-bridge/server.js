@@ -37,6 +37,18 @@ let db = null;
 let mqttClient = null;
 let batchCounter = 0;
 
+// Device status (synced from device via MQTT)
+let deviceStatus = {
+    connected: false,
+    thresholds: {
+        crash: 11.0,
+        braking: 9.0,
+        accel: 7.0,
+        cornering: 8.0
+    },
+    lastUpdate: null
+};
+
 // ============== Database Setup ==============
 
 function initDatabase() {
@@ -123,6 +135,19 @@ function handleTelemetry(message) {
     console.log(`[Telemetry] Batch stored: ${data.n} samples (batch_id: ${batchId})`);
 }
 
+function handleStatus(message) {
+    const data = JSON.parse(message.toString());
+    deviceStatus.connected = true;
+    deviceStatus.thresholds = {
+        crash: data.crash,
+        braking: data.braking,
+        accel: data.accel,
+        cornering: data.cornering
+    };
+    deviceStatus.lastUpdate = Date.now();
+    console.log(`[Status] Device thresholds: crash=${data.crash} braking=${data.braking} accel=${data.accel} cornering=${data.cornering}`);
+}
+
 function connectMQTT() {
     console.log(`[MQTT] Connecting to ${config.mqtt.broker}...`);
     mqttClient = mqtt.connect(config.mqtt.broker, config.mqtt.options);
@@ -131,12 +156,14 @@ function connectMQTT() {
         console.log('[MQTT] Connected to broker');
         mqttClient.subscribe('driving/alerts', { qos: 1 });
         mqttClient.subscribe('driving/telemetry', { qos: 0 });
+        mqttClient.subscribe('driving/status', { qos: 1 });
     });
 
     mqttClient.on('message', (topic, message) => {
         try {
             if (topic === 'driving/alerts') handleAlert(message);
             else if (topic === 'driving/telemetry') handleTelemetry(message);
+            else if (topic === 'driving/status') handleStatus(message);
         } catch (error) {
             console.error(`[MQTT] Error:`, error.message);
         }
@@ -220,6 +247,11 @@ app.get('/api/stats', (req, res) => {
         totalReadings: readingCount.count,
         totalBatches: batchCount.count
     });
+});
+
+// Get device status (thresholds synced from device)
+app.get('/api/device/status', (req, res) => {
+    res.json(deviceStatus);
 });
 
 // Send command to device via MQTT
