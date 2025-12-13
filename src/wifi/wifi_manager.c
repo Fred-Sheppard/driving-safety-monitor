@@ -22,20 +22,22 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                                int32_t event_id, void *event_data) {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         wifi_event_sta_disconnected_t *disconn = (wifi_event_sta_disconnected_t *)event_data;
-        ESP_LOGW(TAG, "Disconnected, reason: %d", disconn->reason);
 
-        if (s_retry_num < WIFI_MAXIMUM_RETRY) {
-            esp_wifi_connect();
-            s_retry_num++;
-            ESP_LOGI(TAG, "Retry WiFi connection (%d/%d)", s_retry_num, WIFI_MAXIMUM_RETRY);
-        } else {
-            xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
-            ESP_LOGE(TAG, "WiFi connection failed after %d retries", WIFI_MAXIMUM_RETRY);
-        }
+        // Clear connected bit so mqtt_manager knows we're offline
+        xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+
+        s_retry_num++;
+        ESP_LOGW(TAG, "Disconnected (reason: %d), reconnecting... (attempt %d)",
+                 disconn->reason, s_retry_num);
+
+        // Always retry - never give up
+        vTaskDelay(pdMS_TO_TICKS(1000)); // Brief delay before retry
+        esp_wifi_connect();
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
         ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0;
+        xEventGroupClearBits(s_wifi_event_group, WIFI_FAIL_BIT);
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
 }
