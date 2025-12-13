@@ -1,4 +1,5 @@
 #include "trace.h"
+#include "config.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -8,20 +9,28 @@
 
 static const char *TAG = "trace";
 
+#if TRACE_STATS_ENABLED
 // Buffer for vTaskGetRunTimeStats
 #define STATS_BUFFER_SIZE 1024
 static char stats_buffer[STATS_BUFFER_SIZE];
+#endif
 
 // Track previous task for switch logging
 static const char *previous_task_name = NULL;
 
-// Stats printing interval (ms)
-#define STATS_INTERVAL_MS 5000
-
 esp_err_t trace_init(void)
 {
     ESP_LOGI(TAG, "Trace module initialized");
-    ESP_LOGI(TAG, "Context switch logging enabled");
+#if TRACE_CONTEXT_SWITCHES
+    ESP_LOGI(TAG, "Context switch logging: ENABLED");
+#else
+    ESP_LOGI(TAG, "Context switch logging: DISABLED");
+#endif
+#if TRACE_STATS_ENABLED
+    ESP_LOGI(TAG, "Stats printing: ENABLED (interval %d ms)", TRACE_STATS_INTERVAL_MS);
+#else
+    ESP_LOGI(TAG, "Stats printing: DISABLED");
+#endif
     return ESP_OK;
 }
 
@@ -40,6 +49,7 @@ void trace_log_switch(const char *task_name, bool is_switch_in)
     }
 }
 
+#if TRACE_STATS_ENABLED
 void trace_print_stats(void)
 {
     ESP_LOGI(TAG, "========== Task Runtime Stats ==========");
@@ -65,10 +75,10 @@ void trace_print_stats(void)
 
 static void stats_task(void *pvParameters)
 {
-    ESP_LOGI(TAG, "Stats task started - printing every %d ms", STATS_INTERVAL_MS);
+    ESP_LOGI(TAG, "Stats task started - printing every %d ms", TRACE_STATS_INTERVAL_MS);
 
     while (1) {
-        vTaskDelay(pdMS_TO_TICKS(STATS_INTERVAL_MS));
+        vTaskDelay(pdMS_TO_TICKS(TRACE_STATS_INTERVAL_MS));
         trace_print_stats();
     }
 }
@@ -78,3 +88,7 @@ void trace_start_stats_task(void)
     xTaskCreate(stats_task, "trace_stats", 4096, NULL, 1, NULL);
     ESP_LOGI(TAG, "Stats task created");
 }
+#else
+void trace_print_stats(void) {}
+void trace_start_stats_task(void) {}
+#endif

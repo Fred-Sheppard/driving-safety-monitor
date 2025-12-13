@@ -36,4 +36,9 @@
 #define DEFAULT_HARSH_ACCEL_THRESHOLD_G 7.0f
 #define DEFAULT_HARSH_CORNERING_THRESHOLD_G 8.0f
 
+// Tracing configuration
+#define TRACE_CONTEXT_SWITCHES 0 // Log task execution (verbose)
+#define TRACE_STATS_ENABLED 0    // Print periodic runtime stats
+#define TRACE_STATS_INTERVAL_MS 5000
+
 #endif // CONFIG_H

@@ -1,6 +1,7 @@
 #ifndef TRACE_H
 #define TRACE_H
 
+#include "config.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_err.h"
@@ -11,9 +12,6 @@
 extern "C"
 {
 #endif
-
-// Enable/disable verbose context switch logging
-#define TRACE_CONTEXT_SWITCHES 0
 
 // Macro to trace task execution - place at start of task loop
 #if TRACE_CONTEXT_SWITCHES
