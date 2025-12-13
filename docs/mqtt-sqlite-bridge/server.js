@@ -222,6 +222,35 @@ app.get('/api/stats', (req, res) => {
     });
 });
 
+// Send command to device via MQTT
+app.post('/api/config/threshold', (req, res) => {
+    const { type, value } = req.body;
+
+    const validTypes = ['crash', 'braking', 'accel', 'cornering'];
+    if (!validTypes.includes(type)) {
+        return res.status(400).json({ error: 'Invalid threshold type' });
+    }
+
+    if (typeof value !== 'number' || value < 0 || value > 50) {
+        return res.status(400).json({ error: 'Value must be a number between 0 and 50' });
+    }
+
+    const command = JSON.stringify({
+        cmd: 'set_threshold',
+        type: type,
+        value: value
+    });
+
+    mqttClient.publish('driving/commands', command, { qos: 1 }, (err) => {
+        if (err) {
+            console.error('[MQTT] Failed to publish command:', err.message);
+            return res.status(500).json({ error: 'Failed to send command' });
+        }
+        console.log(`[Config] Sent threshold command: ${type}=${value}G`);
+        res.json({ success: true, type, value });
+    });
+});
+
 // ============== Dashboard ==============
 
 app.get('/', (req, res) => {

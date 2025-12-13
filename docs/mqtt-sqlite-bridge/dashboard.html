@@ -31,7 +31,7 @@
         .refresh-btn { background: #00d4ff; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; color: #000; font-weight: bold; }
         .refresh-btn:hover { background: #00b8e6; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        h2 { color: #00d4ff; font-size: 1.1em; }
+        h2 { color: #00d4ff; font-size: 1.1em; margin-bottom: 15px; }
         .status { display: flex; align-items: center; gap: 8px; }
         .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #4caf50; animation: pulse 2s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
@@ -50,6 +50,22 @@
         .penalty-dot { width: 8px; height: 8px; border-radius: 50%; }
         .penalty-dot.crash { background: #ff4757; }
         .penalty-dot.warning { background: #ffc107; }
+
+        /* Config panel styles */
+        .config-panel { margin-bottom: 20px; }
+        .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; }
+        .config-item { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #1a1a2e; border-radius: 8px; }
+        .config-item label { color: #ccc; font-size: 0.9em; }
+        .config-controls { display: flex; align-items: center; gap: 10px; }
+        .config-input { width: 70px; padding: 6px 10px; border: 1px solid #2a2a4a; border-radius: 5px; background: #0f0f1a; color: #eee; text-align: center; font-size: 1em; }
+        .config-input:focus { outline: none; border-color: #00d4ff; }
+        .config-unit { color: #666; font-size: 0.85em; }
+        .config-btn { background: #00d4ff; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; color: #000; font-weight: bold; font-size: 0.85em; }
+        .config-btn:hover { background: #00b8e6; }
+        .config-btn:disabled { background: #444; cursor: not-allowed; }
+        .config-btn.sending { background: #ffc107; }
+        .config-btn.success { background: #4caf50; }
+        .config-btn.error { background: #ff4757; }
     </style>
 </head>
 <body>
@@ -61,44 +77,110 @@
         const CRASH_PENALTY = 25;
         const WARNING_PENALTY = 5;
 
+        // Default thresholds (from embedded config.h)
+        const DEFAULT_THRESHOLDS = {
+            crash: 11.0,
+            braking: 9.0,
+            accel: 7.0,
+            cornering: 8.0
+        };
+
         function ScoreDial({ score, crashes, warnings }) {
-            // Arc goes from 180 to 0 degrees (left to right semicircle)
             const radius = 80;
-            const circumference = Math.PI * radius; // Half circle
+            const circumference = Math.PI * radius;
             const scorePercent = Math.max(0, Math.min(100, score)) / 100;
             const offset = circumference * (1 - scorePercent);
 
-            // Color based on score
-            let color = '#4caf50'; // Green
-            if (score < 50) color = '#ff4757'; // Red
-            else if (score < 75) color = '#ffc107'; // Yellow
+            let color = '#4caf50';
+            if (score < 50) color = '#ff4757';
+            else if (score < 75) color = '#ffc107';
 
             return (
                 <div className="score-card">
                     <div className="score-label">Driving Score</div>
                     <div className="dial-container">
                         <svg className="dial-svg" viewBox="0 0 200 120">
-                            {/* Background arc */}
-                            <path
-                                className="dial-bg"
-                                d="M 20 100 A 80 80 0 0 1 180 100"
-                            />
-                            {/* Filled arc */}
-                            <path
-                                className="dial-fill"
-                                d="M 20 100 A 80 80 0 0 1 180 100"
-                                style={{
-                                    stroke: color,
-                                    strokeDasharray: circumference,
-                                    strokeDashoffset: offset
-                                }}
-                            />
+                            <path className="dial-bg" d="M 20 100 A 80 80 0 0 1 180 100" />
+                            <path className="dial-fill" d="M 20 100 A 80 80 0 0 1 180 100"
+                                style={{ stroke: color, strokeDasharray: circumference, strokeDashoffset: offset }} />
                         </svg>
                         <div className="score-value" style={{ color }}>{score}</div>
                     </div>
                     <div className="score-breakdown">
                         <span><div className="penalty-dot crash"></div> {crashes} crashes (-{crashes * CRASH_PENALTY})</span>
                         <span><div className="penalty-dot warning"></div> {warnings} warnings (-{warnings * WARNING_PENALTY})</span>
+                    </div>
+                </div>
+            );
+        }
+
+        function ThresholdConfig({ type, label, defaultValue }) {
+            const [value, setValue] = useState(defaultValue);
+            const [status, setStatus] = useState('idle'); // idle, sending, success, error
+
+            const sendThreshold = async () => {
+                setStatus('sending');
+                try {
+                    const res = await fetch('/api/config/threshold', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ type, value: parseFloat(value) })
+                    });
+                    if (res.ok) {
+                        setStatus('success');
+                        setTimeout(() => setStatus('idle'), 2000);
+                    } else {
+                        setStatus('error');
+                        setTimeout(() => setStatus('idle'), 2000);
+                    }
+                } catch (err) {
+                    setStatus('error');
+                    setTimeout(() => setStatus('idle'), 2000);
+                }
+            };
+
+            const btnText = {
+                idle: 'Set',
+                sending: '...',
+                success: 'OK',
+                error: 'Err'
+            };
+
+            return (
+                <div className="config-item">
+                    <label>{label}</label>
+                    <div className="config-controls">
+                        <input
+                            type="number"
+                            className="config-input"
+                            value={value}
+                            onChange={(e) => setValue(e.target.value)}
+                            min="0"
+                            max="50"
+                            step="0.5"
+                        />
+                        <span className="config-unit">G</span>
+                        <button
+                            className={`config-btn ${status}`}
+                            onClick={sendThreshold}
+                            disabled={status === 'sending'}
+                        >
+                            {btnText[status]}
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        function ConfigPanel() {
+            return (
+                <div className="card config-panel">
+                    <h2>Detection Thresholds</h2>
+                    <div className="config-grid">
+                        <ThresholdConfig type="crash" label="Crash Detection" defaultValue={DEFAULT_THRESHOLDS.crash} />
+                        <ThresholdConfig type="braking" label="Harsh Braking" defaultValue={DEFAULT_THRESHOLDS.braking} />
+                        <ThresholdConfig type="accel" label="Harsh Acceleration" defaultValue={DEFAULT_THRESHOLDS.accel} />
+                        <ThresholdConfig type="cornering" label="Harsh Cornering" defaultValue={DEFAULT_THRESHOLDS.cornering} />
                     </div>
                 </div>
             );
@@ -111,7 +193,6 @@
             const chartRef = useRef(null);
             const chartInstance = useRef(null);
 
-            // Calculate driving score
             const score = Math.max(0, 100 - (stats.crashes * CRASH_PENALTY) - (stats.warnings * WARNING_PENALTY));
 
             const fetchData = async () => {
@@ -191,10 +272,11 @@
                         </div>
                     </div>
 
-                    {/* Score Dial */}
                     <div className="score-section">
                         <ScoreDial score={score} crashes={stats.crashes} warnings={stats.warnings} />
                     </div>
+
+                    <ConfigPanel />
 
                     <div className="grid">
                         <div className="card stat-card">
