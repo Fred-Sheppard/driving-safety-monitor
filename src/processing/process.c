@@ -3,13 +3,7 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "trace/trace.h"
-#include <math.h>
-
-// Detection modules
-#include "crash.h"
-#include "brake.h"
-#include "accelerate.h"
-#include "corner.h"
+#include "detector.h"
 
 static const char *TAG = "process";
 
@@ -18,8 +12,7 @@ static sensor_batch_t current_batch;
 static uint16_t batch_index = 0;
 
 // Forward declarations
-static void send_log(const sensor_reading_t *data);
-static void process_sensor_data(const sensor_reading_t *data);
+static void batch_telemetry_reading(const sensor_reading_t *data);
 
 void processing_task(void *pvParameters)
 {
@@ -32,10 +25,7 @@ void processing_task(void *pvParameters)
     batch_index = 0;
 
     // Initialize detection modules
-    crash_detection_init();
-    brake_detection_init();
-    accel_detection_init();
-    corner_detection_init();
+    detectors_init();
 
     ESP_LOGI(TAG, "Processing task started");
 
@@ -61,37 +51,13 @@ void processing_task(void *pvParameters)
         if (xQueueReceive(sensor_queue, &sensor_data, pdMS_TO_TICKS(100)) ==
             pdTRUE)
         {
-            process_sensor_data(&sensor_data);
+            detectors_check_all(&sensor_data);
+            batch_telemetry_reading(&sensor_data);
         }
     }
 }
 
-static void process_sensor_data(const sensor_reading_t *data)
-{
-    if (detect_crash(data))
-    {
-        handle_crash(data);
-    }
-
-    if (detect_harsh_braking(data))
-    {
-        handle_harsh_braking(data);
-    }
-
-    if (detect_harsh_cornering(data))
-    {
-        handle_harsh_cornering(data);
-    }
-
-    if (detect_harsh_acceleration(data))
-    {
-        handle_harsh_acceleration(data);
-    }
-
-    send_log(data);
-}
-
-static void send_log(const sensor_reading_t *data)
+static void batch_telemetry_reading(const sensor_reading_t *data)
 {
     // Start a new batch if this is the first sample
     if (batch_index == 0)
