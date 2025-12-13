@@ -2,6 +2,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
+#include "trace/trace.h"
 #include <math.h>
 
 // Detection modules
@@ -40,6 +41,7 @@ void processing_task(void *pvParameters)
 
     while (1)
     {
+        TRACE_TASK_RUN(TAG);
         // Process all pending commands (non-blocking)
         //
         // How to read this:

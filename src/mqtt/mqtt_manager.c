@@ -7,6 +7,7 @@
 #include "freertos/task.h"
 #include "mqtt_client.h"
 #include "esp_log.h"
+#include "trace/trace.h"
 #include <string.h>
 
 static const char *TAG = "mqtt_manager";
@@ -105,6 +106,7 @@ void mqtt_task(void *pvParameters)
 
     while (1)
     {
+        TRACE_TASK_RUN(TAG);
         // Wait for MQTT connection before processing
         if (!mqtt_manager_is_connected())
         {

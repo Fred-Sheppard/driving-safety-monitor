@@ -5,6 +5,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
+#include "trace/trace.h"
 #include <math.h>
 
 static const char *TAG = "sensor";
@@ -63,6 +64,7 @@ void sensor_task(void *pvParameters)
 
     while (1)
     {
+        TRACE_TASK_RUN(TAG);
         sensor_reading_t r = read_imu();
 
         if (xQueueSend(sensor_queue, &r, 0) != pdTRUE)

@@ -11,6 +11,7 @@
 #include "processing/process.h"
 #include "sensor/sensor.h"
 #include "i2c/ili9488/ili9488.hpp"
+#include "trace/trace.h"
 
 static const char *TAG = "main";
 
@@ -85,6 +86,11 @@ void app_main(void)
     xTaskCreate(processing_task, "process", 4096, NULL, PROCESSING_TASK_PRIORITY, NULL);
     xTaskCreate(sensor_task, "sensor", 4096, NULL, SENSOR_TASK_PRIORITY, NULL);
     xTaskCreate(displayTask, "display", 8192, NULL, SCREEN_TASK_PRIORITY, NULL);
+
+    // Initialize tracing and start stats task
+    trace_init();
+    trace_start_stats_task();
+
     ESP_LOGI(TAG, "Tasks created, system running");
     // TEMPORARY: Send mock data for testing
     // send_mock_data();
