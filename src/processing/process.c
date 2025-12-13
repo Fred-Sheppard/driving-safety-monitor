@@ -13,11 +13,13 @@ static uint16_t batch_index = 0;
 
 // Forward declarations
 static void batch_telemetry_reading(const sensor_reading_t *data);
+static void handle_command(const command_t *cmd);
 
 void processing_task(void *pvParameters)
 {
     (void)pvParameters;
     sensor_reading_t sensor_data;
+    command_t cmd;
 
     // Initialize batch
     current_batch.sample_rate_hz = IMU_SAMPLE_RATE_HZ;
@@ -33,19 +35,10 @@ void processing_task(void *pvParameters)
     {
         TRACE_TASK_RUN(TAG);
         // Process all pending commands (non-blocking)
-        //
-        // How to read this:
-        // Because we pass in 0, FreeRTOS will not wait at all if there is nothing
-        // in the queue. It will just skip the loop. The while loop handles each
-        // command in the queue, which is not blocking
-        //
-        // It also makes sense to handle commands more readily than sensor data,
-        // since setting the threshold will affect how we react to the sensor data.
-
-        // while (xQueueReceive(command_queue, &cmd, 0) == pdTRUE)
-        // {
-        //     handle_command(&cmd);
-        // }
+        while (xQueueReceive(command_queue, &cmd, 0) == pdTRUE)
+        {
+            handle_command(&cmd);
+        }
 
         // Wait for sensor data (with timeout)
         if (xQueueReceive(sensor_queue, &sensor_data, pdMS_TO_TICKS(100)) ==
@@ -83,4 +76,32 @@ static void batch_telemetry_reading(const sensor_reading_t *data)
         // Reset for next batch
         batch_index = 0;
     }
+}
+
+static void handle_command(const command_t *cmd)
+{
+    detector_type_t detector;
+
+    switch (cmd->type)
+    {
+    case CMD_SET_CRASH_THRESHOLD:
+        detector = DETECTOR_CRASH;
+        break;
+    case CMD_SET_BRAKING_THRESHOLD:
+        detector = DETECTOR_HARSH_BRAKING;
+        break;
+    case CMD_SET_ACCEL_THRESHOLD:
+        detector = DETECTOR_HARSH_ACCEL;
+        break;
+    case CMD_SET_CORNERING_THRESHOLD:
+        detector = DETECTOR_HARSH_CORNERING;
+        break;
+    default:
+        ESP_LOGW(TAG, "Unknown command type: %d", cmd->type);
+        return;
+    }
+
+    detector_set_threshold(detector, cmd->value);
+    ESP_LOGI(TAG, "Set %s threshold to %.1f G",
+             detector_get_name(detector), cmd->value);
 }

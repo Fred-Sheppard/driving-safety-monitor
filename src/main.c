@@ -52,7 +52,7 @@ void app_main(void)
     mqtt_queue = xQueueCreate(MQTT_QUEUE_SIZE, sizeof(mqtt_message_t));
     batch_queue = xQueueCreate(BATCH_QUEUE_SIZE, sizeof(sensor_batch_t));
     sensor_queue = xQueueCreate(SENSOR_QUEUE_SIZE, sizeof(sensor_reading_t));
-    command_queue = xQueueCreate(COMMAND_QUEUE_SIZE, sizeof(uint8_t));
+    command_queue = xQueueCreate(COMMAND_QUEUE_SIZE, sizeof(command_t));
 
     if (mqtt_queue == NULL || batch_queue == NULL ||
         sensor_queue == NULL || command_queue == NULL)

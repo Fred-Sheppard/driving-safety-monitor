@@ -67,6 +67,20 @@ typedef struct {
     sensor_reading_t samples[LOG_BATCH_SIZE];
 } sensor_batch_t;
 
+// Command types for remote configuration
+typedef enum {
+    CMD_SET_CRASH_THRESHOLD,
+    CMD_SET_BRAKING_THRESHOLD,
+    CMD_SET_ACCEL_THRESHOLD,
+    CMD_SET_CORNERING_THRESHOLD
+} command_type_t;
+
+// Command structure (received via command_queue)
+typedef struct {
+    command_type_t type;
+    float value;
+} command_t;
+
 // External queue handles (defined in main.c)
 extern QueueHandle_t sensor_queue;
 extern QueueHandle_t batch_queue;

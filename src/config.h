@@ -26,8 +26,10 @@
 #define MQTT_BROKER_URI "mqtt://alderaan.software-engineering.ie:1883"
 #define MQTT_TOPIC_ALERTS "driving/alerts"
 #define MQTT_TOPIC_TELEMETRY "driving/telemetry"
+#define MQTT_TOPIC_COMMANDS "driving/commands"
 #define MQTT_QOS_ALERTS 1    // At-least-once for critical alerts
 #define MQTT_QOS_TELEMETRY 0 // At-most-once for bulk telemetry
+#define MQTT_QOS_COMMANDS 1  // At-least-once for commands
 // Nothing needs QOS 2: Exactly once
 // Repeated alerts or commands are not an issue
 
