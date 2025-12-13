@@ -23,6 +23,9 @@ static sensor_reading_t read_mock_imu(void);
 
 esp_err_t sensor_i2c_init(void)
 {
+#ifdef MOCK_SENSOR_DATA
+    return ESP_OK;
+#endif
     ESP_ERROR_CHECK(i2c_bus_init());
     return mpu6050_init();
 }
@@ -51,7 +54,7 @@ static sensor_reading_t read_mock_imu(void)
 
     if (tick % MOCK_BRAKE_EVENT_TICKS == 0)
     {
-        r.y = MOCK_BRAKE_FORCE;
+        r.y = -DEFAULT_HARSH_BRAKING_THRESHOLD_G - 1.0f;
         ESP_LOGI(TAG, "Mock brake event");
     }
     return r;
