@@ -5,15 +5,16 @@
 class LGFX_ILI9488 : public lgfx::LGFX_Device {
     lgfx::Bus_SPI _bus;
     lgfx::Panel_ILI9488 _panel;
-public:
+    lgfx::Touch_XPT2046 _touch;
 
+public:
     LGFX_ILI9488(void) {
         // SPI bus configuration
         auto bus_cfg = _bus.config();
-        bus_cfg.spi_host    = SPI2_HOST;   // VSPI or HSPI
+        bus_cfg.spi_host    = SPI2_HOST;
         bus_cfg.spi_mode    = 0;
-        bus_cfg.freq_write  = 40000000;    // 40 MHz
-        bus_cfg.freq_read   = 16000000;    // 16 MHz read
+        bus_cfg.freq_write  = 40000000;
+        bus_cfg.freq_read   = 16000000;
         bus_cfg.pin_sclk    = 18;
         bus_cfg.pin_mosi    = 23;
         bus_cfg.pin_miso    = 19;
@@ -32,12 +33,22 @@ public:
         panel_cfg.memory_height = 480;
         panel_cfg.offset_x = 0;
         panel_cfg.offset_y = 0;
-        panel_cfg.readable = true; // set to false if MISO not connected
+        panel_cfg.readable = true;
         _panel.config(panel_cfg);
 
         setPanel(&_panel);
 
-        // Backlight setup using ESP-IDF GPIO
+        // Touch configuration (XPT2046)
+        auto touch_cfg = _touch.config();
+        touch_cfg.spi_host = SPI2_HOST;
+        touch_cfg.freq     = 1000000;
+        touch_cfg.pin_cs   = 33;
+        touch_cfg.pin_int  = 36;
+        touch_cfg.offset_rotation = 0;
+        _touch.config(touch_cfg);
+        _panel.setTouch(&_touch);
+
+        // Backlight setup
         gpio_config_t io_conf = {};
         io_conf.pin_bit_mask = (1ULL << 32);
         io_conf.mode = GPIO_MODE_OUTPUT;
@@ -46,6 +57,6 @@ public:
         io_conf.intr_type = GPIO_INTR_DISABLE;
         gpio_config(&io_conf);
 
-        gpio_set_level((gpio_num_t)32, 1); // turn backlight ON
+        gpio_set_level((gpio_num_t)32, 1);
     }
 };

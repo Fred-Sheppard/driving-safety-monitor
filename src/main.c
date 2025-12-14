@@ -10,7 +10,7 @@
 #include "mqtt/mqtt_manager.h"
 #include "processing/process.h"
 #include "sensor/sensor.h"
-#include "i2c/ili9488/ili9488.hpp"
+#include "display/display_manager.hpp"
 #include "trace/trace.h"
 #include "queue/bidir_queue.h"
 
@@ -64,7 +64,7 @@ void app_main(void)
     ESP_LOGI(TAG, "MQTT client initialized (waiting for WiFi)");
 
     // Initialize the display
-    tft_init();
+    display_init();
     // Stack needs to be large due to JSON serialization of batches
     xTaskCreate(mqtt_task, "mqtt", 16384, NULL, MQTT_TASK_PRIORITY, NULL);
 

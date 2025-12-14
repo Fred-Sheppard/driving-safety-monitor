@@ -1,6 +1,6 @@
 #include "detector_defs.h"
 #include "config.h"
-#include "i2c/ili9488/ili9488.hpp"
+#include "display/display_manager.hpp"
 #include <math.h>
 
 #define GRAVITY_G 9.81f

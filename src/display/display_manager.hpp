@@ -1,5 +1,5 @@
-#ifndef ILI9488_HPP
-#define ILI9488_HPP
+#ifndef DISPLAY_MANAGER_HPP
+#define DISPLAY_MANAGER_HPP
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -23,7 +23,7 @@ extern "C"
   extern int countdownValue;
   extern SemaphoreHandle_t stateMutex;
 
-  void tft_init();
+  void display_init();
   void displayTask(void *pvParameters);
 
   void triggerWarningCountdown(void);
@@ -35,4 +35,4 @@ extern "C"
 }
 #endif
 
-#endif // ILI9488_HPP
+#endif // DISPLAY_MANAGER_HPP

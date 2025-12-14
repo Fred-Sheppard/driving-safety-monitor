@@ -1,0 +1,50 @@
+#ifndef ILI9488_CONSTANTS_HPP
+#define ILI9488_CONSTANTS_HPP
+
+#include <stdint.h>
+
+// Screen dimensions (after rotation)
+#define SCREEN_WIDTH  480
+#define SCREEN_HEIGHT 320
+
+// Common UI dimensions
+#define HEADER_HEIGHT 50
+#define FOOTER_HEIGHT 50
+#define DIALOG_BOX_WIDTH 400
+#define DIALOG_BOX_HEIGHT 250
+#define DIALOG_BOX_X ((SCREEN_WIDTH - DIALOG_BOX_WIDTH) / 2)
+#define DIALOG_BOX_Y ((SCREEN_HEIGHT - DIALOG_BOX_HEIGHT) / 2)
+
+#define CRASH_BOX_HEIGHT 280
+
+#define BUTTON_WIDTH 300
+#define BUTTON_HEIGHT 60
+#define BUTTON_RADIUS 8
+
+// Timeouts (ms)
+#define CRASH_SCREEN_TIMEOUT_MS    5000
+#define WARNING_SCREEN_TIMEOUT_MS  10000
+#define COUNTDOWN_INTERVAL_MS      1000
+#define DISPLAY_TASK_DELAY_MS      50
+#define INITIAL_COUNTDOWN_VALUE    10
+
+// Color helper macro (RGB565)
+#define RGB565(r, g, b) ((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3))
+
+// Theme colors
+#define COLOR_GRASS_GREEN   RGB565(76, 175, 80)
+#define COLOR_DARK_GREEN    RGB565(46, 125, 50)
+#define COLOR_TREE_GREEN    RGB565(27, 94, 32)
+#define COLOR_ROAD_GREY     RGB565(117, 117, 117)
+#define COLOR_ROAD_DARK     RGB565(66, 66, 66)
+#define COLOR_BROWN         RGB565(109, 76, 65)
+#define COLOR_CAR_BLUE      RGB565(25, 118, 210)
+#define COLOR_CAR_DARK_BLUE RGB565(21, 101, 192)
+#define COLOR_CAR_WINDOW    RGB565(144, 202, 249)
+#define COLOR_DARK_BG       RGB565(20, 20, 20)
+#define COLOR_DARK_RED_BG   RGB565(139, 0, 0)
+#define COLOR_GREY_BG       RGB565(40, 40, 40)
+#define COLOR_CAUTION_BG    RGB565(40, 40, 40)
+#define COLOR_BANNER_HEIGHT 140
+
+#endif // ILI9488_CONSTANTS_HPP
