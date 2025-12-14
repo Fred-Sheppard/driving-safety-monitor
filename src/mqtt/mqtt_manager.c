@@ -11,9 +11,13 @@
 static const char *TAG = "mqtt";
 
 // Global state (shared via mqtt_internal.h)
+char g_device_id[DEVICE_ID_LEN] = {0};
 esp_mqtt_client_handle_t g_mqtt_client = NULL;
 bool g_mqtt_connected = false;
 bool g_status_requested = false;
+
+// Device-specific command topic
+static char s_commands_topic[64];
 
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
                                int32_t event_id, void *event_data)
@@ -25,8 +29,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "Connected to broker");
         g_mqtt_connected = true;
-        esp_mqtt_client_subscribe(g_mqtt_client, MQTT_TOPIC_COMMANDS, MQTT_QOS_COMMANDS);
-        ESP_LOGI(TAG, "Subscribed to %s", MQTT_TOPIC_COMMANDS);
+        esp_mqtt_client_subscribe(g_mqtt_client, s_commands_topic, MQTT_QOS_COMMANDS);
+        ESP_LOGI(TAG, "Subscribed to %s", s_commands_topic);
         g_status_requested = true;
         break;
 
@@ -40,8 +44,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
         break;
 
     case MQTT_EVENT_DATA:
-        if (event->topic_len == strlen(MQTT_TOPIC_COMMANDS) &&
-            strncmp(event->topic, MQTT_TOPIC_COMMANDS, event->topic_len) == 0)
+        if (event->topic_len == strlen(s_commands_topic) &&
+            strncmp(event->topic, s_commands_topic, event->topic_len) == 0)
         {
             mqtt_handle_command(event->data, event->data_len);
         }
@@ -67,10 +71,18 @@ esp_err_t mqtt_manager_init(void)
     static char client_id[32];
     uint8_t mac[6];
     esp_read_mac(mac, ESP_MAC_WIFI_STA);
-    snprintf(client_id, sizeof(client_id), "driving-%02X%02X%02X%02X%02X%02X",
+
+    // Set global device ID (just the MAC portion)
+    snprintf(g_device_id, sizeof(g_device_id), "%02X%02X%02X%02X%02X%02X",
              mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
-    ESP_LOGI(TAG, "Client ID: %s", client_id);
+    // Client ID includes "driving-" prefix
+    snprintf(client_id, sizeof(client_id), "driving-%s", g_device_id);
+
+    // Build device-specific command topic
+    snprintf(s_commands_topic, sizeof(s_commands_topic), "driving/commands/%s", g_device_id);
+
+    ESP_LOGI(TAG, "Device ID: %s", g_device_id);
 
     esp_mqtt_client_config_t mqtt_cfg = {
         .broker.address.uri = MQTT_BROKER_URI,

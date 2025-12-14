@@ -13,6 +13,7 @@ static const char *TAG = "mqtt_cmd";
 void mqtt_publish_status(const threshold_status_t *status)
 {
     cJSON *root = cJSON_CreateObject();
+    cJSON_AddStringToObject(root, "dev", g_device_id);
     cJSON_AddNumberToObject(root, "crash", status->crash);
     cJSON_AddNumberToObject(root, "braking", status->braking);
     cJSON_AddNumberToObject(root, "accel", status->accel);

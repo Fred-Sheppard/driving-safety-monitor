@@ -5,6 +5,10 @@
 #include "message_types.h"
 #include <stdbool.h>
 
+// Device ID (MAC-based, e.g., "A1B2C3D4E5F6")
+#define DEVICE_ID_LEN 13
+extern char g_device_id[DEVICE_ID_LEN];
+
 // Shared MQTT client handle
 extern esp_mqtt_client_handle_t g_mqtt_client;
 

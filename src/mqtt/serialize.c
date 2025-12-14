@@ -1,4 +1,5 @@
 #include "serialize.h"
+#include "mqtt_internal.h"
 #include "config.h"
 #include "message_types.h"
 #include "esp_log.h"
@@ -20,14 +21,16 @@ const char *serialize_alert(const mqtt_message_t *msg) {
 
     if (msg->type == MSG_WARNING) {
         len = snprintf(s_alert_buffer, ALERT_BUFFER_SIZE,
-            "{\"type\":\"warning\",\"event\":\"%s\",\"ts\":%lu,\"x\":%.3f,\"y\":%.3f}",
+            "{\"dev\":\"%s\",\"type\":\"warning\",\"event\":\"%s\",\"ts\":%lu,\"x\":%.3f,\"y\":%.3f}",
+            g_device_id,
             warning_event_to_string(msg->data.warning.event),
             (unsigned long)msg->data.warning.timestamp,
             msg->data.warning.accel_x,
             msg->data.warning.accel_y);
     } else if (msg->type == MSG_CRASH) {
         len = snprintf(s_alert_buffer, ALERT_BUFFER_SIZE,
-            "{\"type\":\"crash\",\"ts\":%lu,\"mag\":%.3f}",
+            "{\"dev\":\"%s\",\"type\":\"crash\",\"ts\":%lu,\"mag\":%.3f}",
+            g_device_id,
             (unsigned long)msg->data.crash.timestamp,
             msg->data.crash.accel_magnitude);
     } else {
@@ -47,9 +50,10 @@ const char *serialize_batch(const sensor_batch_t *batch) {
     char *end = s_batch_buffer + BATCH_BUFFER_SIZE;
     int written;
 
-    // Write header
+    // Write header with device ID
     written = snprintf(ptr, end - ptr,
-        "{\"ts\":%lu,\"rate\":%u,\"n\":%u,\"d\":[",
+        "{\"dev\":\"%s\",\"ts\":%lu,\"rate\":%u,\"n\":%u,\"d\":[",
+        g_device_id,
         (unsigned long)batch->batch_start_timestamp,
         batch->sample_rate_hz,
         batch->sample_count);
