@@ -10,6 +10,10 @@
 
 static const char *TAG = "mqtt_cmd";
 
+// Static buffer for incoming commands (avoids heap allocation)
+#define CMD_BUFFER_SIZE 128
+static char s_cmd_buffer[CMD_BUFFER_SIZE];
+
 void mqtt_publish_status(const threshold_status_t *status)
 {
     cJSON *root = cJSON_CreateObject();
@@ -94,17 +98,16 @@ static void handle_set_threshold(cJSON *root)
 
 void mqtt_handle_command(const char *data, int data_len)
 {
-    char *json_str = malloc(data_len + 1);
-    if (!json_str)
+    if (data_len >= CMD_BUFFER_SIZE)
     {
-        ESP_LOGE(TAG, "Failed to allocate memory for command");
+        ESP_LOGE(TAG, "Command too large: %d bytes", data_len);
         return;
     }
-    memcpy(json_str, data, data_len);
-    json_str[data_len] = '\0';
 
-    cJSON *root = cJSON_Parse(json_str);
-    free(json_str);
+    memcpy(s_cmd_buffer, data, data_len);
+    s_cmd_buffer[data_len] = '\0';
+
+    cJSON *root = cJSON_Parse(s_cmd_buffer);
 
     if (!root)
     {
