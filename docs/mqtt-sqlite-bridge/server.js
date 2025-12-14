@@ -1,9 +1,6 @@
 /**
  * MQTT-SQLite Bridge with Dashboard Server
- *
- * Combines the MQTT bridge with an Express server that:
- * - Serves a React dashboard
- * - Provides REST API endpoints for querying data
+ * Multi-device support - tracks multiple ESP32 devices
  */
 
 const mqtt = require('mqtt');
@@ -14,12 +11,10 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Configuration
 const config = {
     mqtt: {
         broker: 'mqtt://alderaan.software-engineering.ie',
         port: 1883,
-        topics: ['driving/alerts', 'driving/telemetry'],
         options: {
             clientId: `driving-monitor-bridge-${Math.random().toString(16).slice(2, 8)}`,
             clean: true,
@@ -32,22 +27,24 @@ const config = {
     }
 };
 
-// Global connections
 let db = null;
 let mqttClient = null;
 let batchCounter = 0;
 
-// Device status (synced from device via MQTT)
-let deviceStatus = {
-    connected: false,
-    thresholds: {
-        crash: 11.0,
-        braking: 9.0,
-        accel: 7.0,
-        cornering: 8.0
-    },
-    lastUpdate: null
-};
+// Multi-device status tracking
+const devices = new Map();
+
+function getOrCreateDevice(deviceId) {
+    if (!devices.has(deviceId)) {
+        devices.set(deviceId, {
+            id: deviceId,
+            connected: true,
+            thresholds: { crash: 11.0, braking: 9.0, accel: 7.0, cornering: 8.0 },
+            lastUpdate: Date.now()
+        });
+    }
+    return devices.get(deviceId);
+}
 
 // ============== Database Setup ==============
 
@@ -58,6 +55,7 @@ function initDatabase() {
     db.exec(`
         CREATE TABLE IF NOT EXISTS alerts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id TEXT NOT NULL DEFAULT 'unknown',
             type TEXT NOT NULL,
             event TEXT,
             device_timestamp INTEGER,
@@ -70,6 +68,7 @@ function initDatabase() {
 
         CREATE TABLE IF NOT EXISTS sensor_readings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id TEXT NOT NULL DEFAULT 'unknown',
             batch_id INTEGER NOT NULL,
             sample_index INTEGER NOT NULL,
             batch_start_timestamp INTEGER,
@@ -82,8 +81,10 @@ function initDatabase() {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
+        CREATE INDEX IF NOT EXISTS idx_alerts_device ON alerts(device_id);
         CREATE INDEX IF NOT EXISTS idx_alerts_type ON alerts(type);
         CREATE INDEX IF NOT EXISTS idx_alerts_created ON alerts(created_at);
+        CREATE INDEX IF NOT EXISTS idx_readings_device ON sensor_readings(device_id);
         CREATE INDEX IF NOT EXISTS idx_readings_batch ON sensor_readings(batch_id);
         CREATE INDEX IF NOT EXISTS idx_readings_timestamp ON sensor_readings(calculated_timestamp);
     `);
@@ -92,20 +93,20 @@ function initDatabase() {
     batchCounter = (maxBatch.max || 0) + 1;
 
     db.insertAlert = db.prepare(`
-        INSERT INTO alerts (type, event, device_timestamp, accel_magnitude, accel_x, accel_y, received_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO alerts (device_id, type, event, device_timestamp, accel_magnitude, accel_x, accel_y, received_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     db.insertReading = db.prepare(`
-        INSERT INTO sensor_readings (batch_id, sample_index, batch_start_timestamp, sample_rate_hz, calculated_timestamp, x, y, z, received_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO sensor_readings (device_id, batch_id, sample_index, batch_start_timestamp, sample_rate_hz, calculated_timestamp, x, y, z, received_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    db.insertReadingsBatch = db.transaction((batchId, batchStartTimestamp, sampleRateHz, samples, receivedAt) => {
+    db.insertReadingsBatch = db.transaction((deviceId, batchId, batchStartTimestamp, sampleRateHz, samples, receivedAt) => {
         for (let i = 0; i < samples.length; i++) {
             const calculatedTimestamp = batchStartTimestamp + Math.floor(i * 1000 / sampleRateHz);
             const [x, y, z] = samples[i];
-            db.insertReading.run(batchId, i, batchStartTimestamp, sampleRateHz, calculatedTimestamp, x, y, z, receivedAt);
+            db.insertReading.run(deviceId, batchId, i, batchStartTimestamp, sampleRateHz, calculatedTimestamp, x, y, z, receivedAt);
         }
     });
 
@@ -117,35 +118,45 @@ function initDatabase() {
 function handleAlert(message) {
     const data = JSON.parse(message.toString());
     const receivedAt = Date.now();
+    const deviceId = data.dev || 'unknown';
+
+    getOrCreateDevice(deviceId);
 
     if (data.type === 'crash') {
-        db.insertAlert.run('crash', null, data.ts, data.mag, null, null, receivedAt);
-        console.log(`[Alert] CRASH detected! magnitude=${data.mag}`);
+        db.insertAlert.run(deviceId, 'crash', null, data.ts, data.mag, null, null, receivedAt);
+        console.log(`[Alert] ${deviceId}: CRASH magnitude=${data.mag}`);
     } else if (data.type === 'warning') {
-        db.insertAlert.run('warning', data.event, data.ts, null, data.x, data.y, receivedAt);
-        console.log(`[Alert] WARNING: ${data.event}`);
+        db.insertAlert.run(deviceId, 'warning', data.event, data.ts, null, data.x, data.y, receivedAt);
+        console.log(`[Alert] ${deviceId}: WARNING ${data.event}`);
     }
 }
 
 function handleTelemetry(message) {
     const data = JSON.parse(message.toString());
     const receivedAt = Date.now();
+    const deviceId = data.dev || 'unknown';
     const batchId = batchCounter++;
-    db.insertReadingsBatch(batchId, data.ts, data.rate, data.d, receivedAt);
-    console.log(`[Telemetry] Batch stored: ${data.n} samples (batch_id: ${batchId})`);
+
+    getOrCreateDevice(deviceId);
+    db.insertReadingsBatch(deviceId, batchId, data.ts, data.rate, data.d, receivedAt);
+    console.log(`[Telemetry] ${deviceId}: ${data.n} samples (batch_id: ${batchId})`);
 }
 
 function handleStatus(message) {
     const data = JSON.parse(message.toString());
-    deviceStatus.connected = true;
-    deviceStatus.thresholds = {
+    const deviceId = data.dev || 'unknown';
+
+    const device = getOrCreateDevice(deviceId);
+    device.connected = true;
+    device.thresholds = {
         crash: data.crash,
         braking: data.braking,
         accel: data.accel,
         cornering: data.cornering
     };
-    deviceStatus.lastUpdate = Date.now();
-    console.log(`[Status] Device thresholds: crash=${data.crash} braking=${data.braking} accel=${data.accel} cornering=${data.cornering}`);
+    device.lastUpdate = Date.now();
+
+    console.log(`[Status] ${deviceId}: crash=${data.crash} braking=${data.braking} accel=${data.accel} cornering=${data.cornering}`);
 }
 
 function connectMQTT() {
@@ -177,40 +188,147 @@ function connectMQTT() {
 
 app.use(express.json());
 
-// Get recent alerts
+// List all known devices
+app.get('/api/devices', (req, res) => {
+    const deviceList = Array.from(devices.values()).map(d => ({
+        id: d.id,
+        connected: d.connected,
+        lastUpdate: d.lastUpdate
+    }));
+    res.json(deviceList);
+});
+
+// Get device status
+app.get('/api/devices/:deviceId/status', (req, res) => {
+    const device = devices.get(req.params.deviceId);
+    if (!device) {
+        return res.status(404).json({ error: 'Device not found' });
+    }
+    res.json(device);
+});
+
+// Get alerts (optionally filtered by device)
 app.get('/api/alerts', (req, res) => {
     const limit = parseInt(req.query.limit) || 50;
-    const alerts = db.prepare(`
-        SELECT * FROM alerts ORDER BY created_at DESC LIMIT ?
-    `).all(limit);
+    const deviceId = req.query.device;
+
+    let query = 'SELECT * FROM alerts';
+    const params = [];
+
+    if (deviceId) {
+        query += ' WHERE device_id = ?';
+        params.push(deviceId);
+    }
+    query += ' ORDER BY created_at DESC LIMIT ?';
+    params.push(limit);
+
+    const alerts = db.prepare(query).all(...params);
     res.json(alerts);
 });
 
-// Get alert counts by type
+// Get alert summary (optionally filtered by device)
 app.get('/api/alerts/summary', (req, res) => {
-    const summary = db.prepare(`
-        SELECT type, event, COUNT(*) as count
-        FROM alerts
-        GROUP BY type, event
-    `).all();
+    const deviceId = req.query.device;
+
+    let query = `SELECT type, event, COUNT(*) as count FROM alerts`;
+    const params = [];
+
+    if (deviceId) {
+        query += ' WHERE device_id = ?';
+        params.push(deviceId);
+    }
+    query += ' GROUP BY type, event';
+
+    const summary = db.prepare(query).all(...params);
     res.json(summary);
 });
 
-// Get recent sensor batches (metadata only)
+// Get stats (optionally filtered by device)
+app.get('/api/stats', (req, res) => {
+    const deviceId = req.query.device;
+
+    let alertQuery = 'SELECT COUNT(*) as count FROM alerts';
+    let crashQuery = "SELECT COUNT(*) as count FROM alerts WHERE type='crash'";
+    let readingQuery = 'SELECT COUNT(*) as count FROM sensor_readings';
+    let batchQuery = 'SELECT COUNT(DISTINCT batch_id) as count FROM sensor_readings';
+
+    if (deviceId) {
+        alertQuery += ' WHERE device_id = ?';
+        crashQuery += ' AND device_id = ?';
+        readingQuery += ' WHERE device_id = ?';
+        batchQuery += ' WHERE device_id = ?';
+
+        const alertCount = db.prepare(alertQuery).get(deviceId);
+        const crashCount = db.prepare(crashQuery).get(deviceId);
+        const readingCount = db.prepare(readingQuery).get(deviceId);
+        const batchCount = db.prepare(batchQuery).get(deviceId);
+
+        res.json({
+            totalAlerts: alertCount.count,
+            crashes: crashCount.count,
+            warnings: alertCount.count - crashCount.count,
+            totalReadings: readingCount.count,
+            totalBatches: batchCount.count
+        });
+    } else {
+        const alertCount = db.prepare(alertQuery).get();
+        const crashCount = db.prepare(crashQuery).get();
+        const readingCount = db.prepare(readingQuery).get();
+        const batchCount = db.prepare(batchQuery).get();
+
+        res.json({
+            totalAlerts: alertCount.count,
+            crashes: crashCount.count,
+            warnings: alertCount.count - crashCount.count,
+            totalReadings: readingCount.count,
+            totalBatches: batchCount.count
+        });
+    }
+});
+
+// Get latest readings (optionally filtered by device)
+app.get('/api/readings/latest', (req, res) => {
+    const limit = parseInt(req.query.limit) || 500;
+    const deviceId = req.query.device;
+
+    let query = 'SELECT device_id, x, y, z, calculated_timestamp, batch_id, sample_index FROM sensor_readings';
+    const params = [];
+
+    if (deviceId) {
+        query += ' WHERE device_id = ?';
+        params.push(deviceId);
+    }
+    query += ' ORDER BY batch_id DESC, sample_index DESC LIMIT ?';
+    params.push(limit);
+
+    const readings = db.prepare(query).all(...params);
+    res.json(readings.reverse());
+});
+
+// Get batches (optionally filtered by device)
 app.get('/api/batches', (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
-    const batches = db.prepare(`
-        SELECT batch_id, batch_start_timestamp, sample_rate_hz,
+    const deviceId = req.query.device;
+
+    let query = `
+        SELECT device_id, batch_id, batch_start_timestamp, sample_rate_hz,
                COUNT(*) as sample_count, MIN(created_at) as created_at
         FROM sensor_readings
-        GROUP BY batch_id
-        ORDER BY batch_id DESC
-        LIMIT ?
-    `).all(limit);
+    `;
+    const params = [];
+
+    if (deviceId) {
+        query += ' WHERE device_id = ?';
+        params.push(deviceId);
+    }
+    query += ' GROUP BY batch_id ORDER BY batch_id DESC LIMIT ?';
+    params.push(limit);
+
+    const batches = db.prepare(query).all(...params);
     res.json(batches);
 });
 
-// Get sensor readings for a specific batch
+// Get batch by ID
 app.get('/api/batches/:batchId', (req, res) => {
     const readings = db.prepare(`
         SELECT sample_index, x, y, z, calculated_timestamp
@@ -221,41 +339,9 @@ app.get('/api/batches/:batchId', (req, res) => {
     res.json(readings);
 });
 
-// Get latest N readings (for live chart)
-app.get('/api/readings/latest', (req, res) => {
-    const limit = parseInt(req.query.limit) || 500;
-    const readings = db.prepare(`
-        SELECT x, y, z, calculated_timestamp, batch_id, sample_index
-        FROM sensor_readings
-        ORDER BY batch_id DESC, sample_index DESC
-        LIMIT ?
-    `).all(limit);
-    res.json(readings.reverse());
-});
-
-// Get stats
-app.get('/api/stats', (req, res) => {
-    const alertCount = db.prepare('SELECT COUNT(*) as count FROM alerts').get();
-    const crashCount = db.prepare("SELECT COUNT(*) as count FROM alerts WHERE type='crash'").get();
-    const readingCount = db.prepare('SELECT COUNT(*) as count FROM sensor_readings').get();
-    const batchCount = db.prepare('SELECT COUNT(DISTINCT batch_id) as count FROM sensor_readings').get();
-
-    res.json({
-        totalAlerts: alertCount.count,
-        crashes: crashCount.count,
-        warnings: alertCount.count - crashCount.count,
-        totalReadings: readingCount.count,
-        totalBatches: batchCount.count
-    });
-});
-
-// Get device status (thresholds synced from device)
-app.get('/api/device/status', (req, res) => {
-    res.json(deviceStatus);
-});
-
-// Send command to device via MQTT
-app.post('/api/config/threshold', (req, res) => {
+// Send command to specific device
+app.post('/api/devices/:deviceId/threshold', (req, res) => {
+    const { deviceId } = req.params;
     const { type, value } = req.body;
 
     const validTypes = ['crash', 'braking', 'accel', 'cornering'];
@@ -273,14 +359,31 @@ app.post('/api/config/threshold', (req, res) => {
         value: value
     });
 
-    mqttClient.publish('driving/commands', command, { qos: 1 }, (err) => {
+    // Publish to device-specific command topic
+    const topic = `driving/commands/${deviceId}`;
+    mqttClient.publish(topic, command, { qos: 1 }, (err) => {
         if (err) {
             console.error('[MQTT] Failed to publish command:', err.message);
             return res.status(500).json({ error: 'Failed to send command' });
         }
-        console.log(`[Config] Sent threshold command: ${type}=${value}G`);
-        res.json({ success: true, type, value });
+        console.log(`[Config] ${deviceId}: ${type}=${value}G`);
+        res.json({ success: true, deviceId, type, value });
     });
+});
+
+// Legacy endpoint (for backwards compatibility)
+app.get('/api/device/status', (req, res) => {
+    // Return first device or default
+    const firstDevice = devices.values().next().value;
+    if (firstDevice) {
+        res.json(firstDevice);
+    } else {
+        res.json({
+            connected: false,
+            thresholds: { crash: 11.0, braking: 9.0, accel: 7.0, cornering: 8.0 },
+            lastUpdate: null
+        });
+    }
 });
 
 // ============== Dashboard ==============
@@ -300,7 +403,7 @@ function shutdown() {
 
 function main() {
     console.log('='.repeat(50));
-    console.log('  Driving Safety Monitor - Dashboard Server');
+    console.log('  Driving Safety Monitor - Multi-Device Dashboard');
     console.log('='.repeat(50));
 
     process.on('SIGINT', shutdown);
