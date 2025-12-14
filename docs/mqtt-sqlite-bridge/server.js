@@ -243,6 +243,33 @@ app.get('/api/alerts/summary', (req, res) => {
     res.json(summary);
 });
 
+// Get event history grouped by hour (for timeline chart)
+app.get('/api/alerts/history', (req, res) => {
+    const deviceId = req.query.device;
+    const hours = parseInt(req.query.hours) || 24;
+
+    const cutoff = Date.now() - (hours * 60 * 60 * 1000);
+
+    let query = `
+        SELECT
+            strftime('%Y-%m-%d %H:00', datetime(received_at/1000, 'unixepoch', 'localtime')) as hour,
+            type,
+            COUNT(*) as count
+        FROM alerts
+        WHERE received_at >= ?
+    `;
+    const params = [cutoff];
+
+    if (deviceId) {
+        query += ' AND device_id = ?';
+        params.push(deviceId);
+    }
+    query += ' GROUP BY hour, type ORDER BY hour ASC';
+
+    const history = db.prepare(query).all(...params);
+    res.json(history);
+});
+
 // Get stats (optionally filtered by device)
 app.get('/api/stats', (req, res) => {
     const deviceId = req.query.device;

@@ -81,6 +81,17 @@
         .config-btn.error { background: #ff4757; }
 
         .device-id-display { font-family: monospace; color: #00d4ff; font-size: 0.85em; }
+
+        /* Event history timeline */
+        .history-card { margin-bottom: 20px; }
+        .history-chart { height: 80px; position: relative; }
+        .history-header { display: flex; justify-content: space-between; align-items: center; }
+        .history-header h2 { margin-bottom: 0; }
+        .history-legend { display: flex; gap: 15px; font-size: 0.8em; color: #888; }
+        .history-legend span { display: flex; align-items: center; gap: 5px; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+        .legend-dot.crash { background: #ff4757; }
+        .legend-dot.warning { background: #ffc107; }
     </style>
 </head>
 <body>
@@ -220,12 +231,103 @@
             );
         }
 
+        function EventHistory({ history }) {
+            const chartRef = useRef(null);
+            const chartInstance = useRef(null);
+
+            useEffect(() => {
+                if (!chartRef.current) return;
+
+                // Build hourly buckets for last 24 hours
+                const now = new Date();
+                const hours = [];
+                for (let i = 23; i >= 0; i--) {
+                    const d = new Date(now.getTime() - i * 60 * 60 * 1000);
+                    d.setMinutes(0, 0, 0);
+                    hours.push(d.toISOString().slice(0, 13).replace('T', ' ') + ':00');
+                }
+
+                // Map history data to hourly buckets
+                const crashData = hours.map(h => {
+                    const match = history.find(e => e.hour === h && e.type === 'crash');
+                    return match ? match.count : 0;
+                });
+                const warningData = hours.map(h => {
+                    const match = history.find(e => e.hour === h && e.type === 'warning');
+                    return match ? match.count : 0;
+                });
+
+                const labels = hours.map(h => h.slice(11, 16)); // Just HH:MM
+
+                const ctx = chartRef.current.getContext('2d');
+
+                if (chartInstance.current) {
+                    chartInstance.current.data.labels = labels;
+                    chartInstance.current.data.datasets[0].data = crashData;
+                    chartInstance.current.data.datasets[1].data = warningData;
+                    chartInstance.current.update('none');
+                } else {
+                    chartInstance.current = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels,
+                            datasets: [
+                                { label: 'Crashes', data: crashData, backgroundColor: '#ff4757', borderRadius: 2 },
+                                { label: 'Warnings', data: warningData, backgroundColor: '#ffc107', borderRadius: 2 }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: false,
+                            scales: {
+                                x: {
+                                    stacked: true,
+                                    grid: { display: false },
+                                    ticks: { color: '#666', maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }
+                                },
+                                y: {
+                                    stacked: true,
+                                    display: false,
+                                    beginAtZero: true
+                                }
+                            },
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        title: (items) => `Hour: ${items[0].label}`
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            }, [history]);
+
+            return (
+                <div className="card history-card">
+                    <div className="history-header">
+                        <h2>Event History (24h)</h2>
+                        <div className="history-legend">
+                            <span><div className="legend-dot crash"></div> Crashes</span>
+                            <span><div className="legend-dot warning"></div> Warnings</span>
+                        </div>
+                    </div>
+                    <div className="history-chart">
+                        <canvas ref={chartRef}></canvas>
+                    </div>
+                </div>
+            );
+        }
+
         function App() {
             const [devices, setDevices] = useState([]);
             const [selectedDevice, setSelectedDevice] = useState(null);
             const [stats, setStats] = useState({ totalAlerts: 0, crashes: 0, warnings: 0, totalReadings: 0, totalBatches: 0 });
             const [alerts, setAlerts] = useState([]);
             const [readings, setReadings] = useState([]);
+            const [history, setHistory] = useState([]);
             const [deviceStatus, setDeviceStatus] = useState({
                 id: null,
                 connected: false,
@@ -242,11 +344,12 @@
                     const deviceParam = selectedDevice ? `?device=${selectedDevice}` : '';
                     const deviceParamAmp = selectedDevice ? `&device=${selectedDevice}` : '';
 
-                    const [devicesRes, statsRes, alertsRes, readingsRes] = await Promise.all([
+                    const [devicesRes, statsRes, alertsRes, readingsRes, historyRes] = await Promise.all([
                         fetch('/api/devices'),
                         fetch(`/api/stats${deviceParam}`),
                         fetch(`/api/alerts?limit=20${deviceParamAmp}`),
-                        fetch(`/api/readings/latest?limit=500${deviceParamAmp}`)
+                        fetch(`/api/readings/latest?limit=500${deviceParamAmp}`),
+                        fetch(`/api/alerts/history${deviceParam}`)
                     ]);
 
                     const devicesData = await devicesRes.json();
@@ -254,6 +357,7 @@
                     setStats(await statsRes.json());
                     setAlerts(await alertsRes.json());
                     setReadings(await readingsRes.json());
+                    setHistory(await historyRes.json());
 
                     // Fetch device-specific status if a device is selected
                     if (selectedDevice) {
@@ -358,6 +462,8 @@
                     <div className="score-section">
                         <ScoreDial score={score} crashes={stats.crashes} warnings={stats.warnings} />
                     </div>
+
+                    <EventHistory history={history} />
 
                     <ConfigPanel deviceStatus={deviceStatus} onSendThreshold={sendThreshold} />
 
