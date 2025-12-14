@@ -35,6 +35,24 @@ SemaphoreHandle_t stateMutex = NULL;
 static unsigned long lastCountdownTime = 0;
 static unsigned long stateStartTime = 0;
 
+// Thread-safe state helpers
+static void set_state(AppState state)
+{
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  currentState = state;
+  xSemaphoreGive(stateMutex);
+}
+
+static AppState get_state(bool *changed)
+{
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  AppState state = currentState;
+  if (changed)
+    *changed = (state != previousState);
+  xSemaphoreGive(stateMutex);
+  return state;
+}
+
 void display_init()
 {
   if (stateMutex == NULL)
@@ -58,9 +76,7 @@ static void handleCountdownState(unsigned long currentTime)
   if (checkCancelButton())
   {
     ESP_LOGI(TAG, "Warning cancelled by user");
-    xSemaphoreTake(stateMutex, portMAX_DELAY);
-    currentState = STATE_MAIN;
-    xSemaphoreGive(stateMutex);
+    set_state(STATE_MAIN);
     return;
   }
 
@@ -82,11 +98,7 @@ static void handleCountdownState(unsigned long currentTime)
 static void handleStateTimeout(unsigned long currentTime, uint32_t timeout)
 {
   if (timeout > 0 && currentTime - stateStartTime > timeout)
-  {
-    xSemaphoreTake(stateMutex, portMAX_DELAY);
-    currentState = STATE_MAIN;
-    xSemaphoreGive(stateMutex);
-  }
+    set_state(STATE_MAIN);
 }
 
 void displayTask(void *pvParameters)
@@ -96,10 +108,8 @@ void displayTask(void *pvParameters)
     TRACE_TASK_RUN(TAG);
     unsigned long currentTime = millis();
 
-    xSemaphoreTake(stateMutex, portMAX_DELAY);
-    AppState state = currentState;
-    bool stateChanged = (state != previousState);
-    xSemaphoreGive(stateMutex);
+    bool stateChanged;
+    AppState state = get_state(&stateChanged);
 
     if (stateChanged)
     {
@@ -132,23 +142,6 @@ void triggerWarningCountdown()
   xSemaphoreGive(stateMutex);
 }
 
-void triggerNormalWarning()
-{
-  xSemaphoreTake(stateMutex, portMAX_DELAY);
-  currentState = STATE_NORMAL_WARNING;
-  xSemaphoreGive(stateMutex);
-}
-
-void triggerCrashScreen()
-{
-  xSemaphoreTake(stateMutex, portMAX_DELAY);
-  currentState = STATE_CRASH;
-  xSemaphoreGive(stateMutex);
-}
-
-void returnToMainScreen()
-{
-  xSemaphoreTake(stateMutex, portMAX_DELAY);
-  currentState = STATE_MAIN;
-  xSemaphoreGive(stateMutex);
-}
+void triggerNormalWarning() { set_state(STATE_NORMAL_WARNING); }
+void triggerCrashScreen() { set_state(STATE_CRASH); }
+void returnToMainScreen() { set_state(STATE_MAIN); }
