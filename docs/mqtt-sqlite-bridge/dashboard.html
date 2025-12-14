@@ -58,6 +58,8 @@
         .penalty-dot { width: 8px; height: 8px; border-radius: 50%; }
         .penalty-dot.crash { background: #ff4757; }
         .penalty-dot.warning { background: #ffc107; }
+        .reset-btn { margin-top: 15px; background: transparent; border: 1px solid #ff4757; color: #ff4757; padding: 6px 16px; border-radius: 5px; cursor: pointer; font-size: 0.85em; transition: all 0.2s; }
+        .reset-btn:hover { background: #ff4757; color: #fff; }
 
         /* Config panel styles */
         .config-panel { margin-bottom: 20px; }
@@ -99,10 +101,24 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        const CRASH_PENALTY = 25;
-        const WARNING_PENALTY = 5;
+        // Score weights: crashes count 5x more than warnings
+        const CRASH_WEIGHT = 5;
+        const WARNING_WEIGHT = 1;
 
-        function ScoreDial({ score, crashes, warnings }) {
+        function calculateScore(batches, crashes, warnings) {
+            if (batches === 0) return 100; // No data yet
+            // Score = ratio of "good" batches to total weighted events
+            // Each batch is a ~5s period of driving
+            const weightedEvents = (crashes * CRASH_WEIGHT) + (warnings * WARNING_WEIGHT);
+            if (weightedEvents === 0) return 100;
+            // Score decreases as events per batch increases
+            const eventsPerBatch = weightedEvents / batches;
+            // Map to 0-100: 0 events/batch = 100, 1+ events/batch approaches 0
+            const score = Math.round(100 * Math.exp(-eventsPerBatch * 2));
+            return Math.max(0, Math.min(100, score));
+        }
+
+        function ScoreDial({ score, crashes, warnings, batches, onReset }) {
             const radius = 80;
             const circumference = Math.PI * radius;
             const scorePercent = Math.max(0, Math.min(100, score)) / 100;
@@ -111,6 +127,8 @@
             let color = '#4caf50';
             if (score < 50) color = '#ff4757';
             else if (score < 75) color = '#ffc107';
+
+            const eventsPerBatch = batches > 0 ? ((crashes * CRASH_WEIGHT + warnings * WARNING_WEIGHT) / batches).toFixed(2) : '0.00';
 
             return (
                 <div className="score-card">
@@ -124,9 +142,11 @@
                         <div className="score-value" style={{ color }}>{score}</div>
                     </div>
                     <div className="score-breakdown">
-                        <span><div className="penalty-dot crash"></div> {crashes} crashes (-{crashes * CRASH_PENALTY})</span>
-                        <span><div className="penalty-dot warning"></div> {warnings} warnings (-{warnings * WARNING_PENALTY})</span>
+                        <span><div className="penalty-dot crash"></div> {crashes} crashes</span>
+                        <span><div className="penalty-dot warning"></div> {warnings} warnings</span>
+                        <span style={{ color: '#666' }}>{eventsPerBatch} events/batch</span>
                     </div>
+                    <button className="reset-btn" onClick={onReset}>Reset Score</button>
                 </div>
             );
         }
@@ -337,7 +357,14 @@
             const chartRef = useRef(null);
             const chartInstance = useRef(null);
 
-            const score = Math.max(0, 100 - (stats.crashes * CRASH_PENALTY) - (stats.warnings * WARNING_PENALTY));
+            const score = calculateScore(stats.totalBatches, stats.crashes, stats.warnings);
+
+            const resetScore = async () => {
+                if (!confirm('Reset driving score? This will clear all alerts.')) return;
+                const deviceParam = selectedDevice ? `?device=${selectedDevice}` : '';
+                await fetch(`/api/score/reset${deviceParam}`, { method: 'POST' });
+                fetchData();
+            };
 
             const fetchData = async () => {
                 try {
@@ -460,7 +487,13 @@
                     </div>
 
                     <div className="score-section">
-                        <ScoreDial score={score} crashes={stats.crashes} warnings={stats.warnings} />
+                        <ScoreDial
+                            score={score}
+                            crashes={stats.crashes}
+                            warnings={stats.warnings}
+                            batches={stats.totalBatches}
+                            onReset={resetScore}
+                        />
                     </div>
 
                     <EventHistory history={history} />

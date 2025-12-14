@@ -273,44 +273,37 @@ app.get('/api/alerts/history', (req, res) => {
 // Get stats (optionally filtered by device)
 app.get('/api/stats', (req, res) => {
     const deviceId = req.query.device;
+    const whereDevice = deviceId ? ' WHERE device_id = ?' : '';
+    const andDevice = deviceId ? ' AND device_id = ?' : '';
+    const params = deviceId ? [deviceId] : [];
 
-    let alertQuery = 'SELECT COUNT(*) as count FROM alerts';
-    let crashQuery = "SELECT COUNT(*) as count FROM alerts WHERE type='crash'";
-    let readingQuery = 'SELECT COUNT(*) as count FROM sensor_readings';
-    let batchQuery = 'SELECT COUNT(DISTINCT batch_id) as count FROM sensor_readings';
+    const alertCount = db.prepare(`SELECT COUNT(*) as count FROM alerts${whereDevice}`).get(...params);
+    const crashCount = db.prepare(`SELECT COUNT(*) as count FROM alerts WHERE type='crash'${andDevice}`).get(...params);
+    const readingCount = db.prepare(`SELECT COUNT(*) as count FROM sensor_readings${whereDevice}`).get(...params);
+    const batchCount = db.prepare(`SELECT COUNT(DISTINCT batch_id) as count FROM sensor_readings${whereDevice}`).get(...params);
+
+    res.json({
+        totalAlerts: alertCount.count,
+        crashes: crashCount.count,
+        warnings: alertCount.count - crashCount.count,
+        totalReadings: readingCount.count,
+        totalBatches: batchCount.count
+    });
+});
+
+// Reset driving score (clears alerts for device or all)
+app.post('/api/score/reset', (req, res) => {
+    const deviceId = req.query.device;
 
     if (deviceId) {
-        alertQuery += ' WHERE device_id = ?';
-        crashQuery += ' AND device_id = ?';
-        readingQuery += ' WHERE device_id = ?';
-        batchQuery += ' WHERE device_id = ?';
-
-        const alertCount = db.prepare(alertQuery).get(deviceId);
-        const crashCount = db.prepare(crashQuery).get(deviceId);
-        const readingCount = db.prepare(readingQuery).get(deviceId);
-        const batchCount = db.prepare(batchQuery).get(deviceId);
-
-        res.json({
-            totalAlerts: alertCount.count,
-            crashes: crashCount.count,
-            warnings: alertCount.count - crashCount.count,
-            totalReadings: readingCount.count,
-            totalBatches: batchCount.count
-        });
+        db.prepare('DELETE FROM alerts WHERE device_id = ?').run(deviceId);
+        console.log(`[Reset] Cleared alerts for device ${deviceId}`);
     } else {
-        const alertCount = db.prepare(alertQuery).get();
-        const crashCount = db.prepare(crashQuery).get();
-        const readingCount = db.prepare(readingQuery).get();
-        const batchCount = db.prepare(batchQuery).get();
-
-        res.json({
-            totalAlerts: alertCount.count,
-            crashes: crashCount.count,
-            warnings: alertCount.count - crashCount.count,
-            totalReadings: readingCount.count,
-            totalBatches: batchCount.count
-        });
+        db.prepare('DELETE FROM alerts').run();
+        console.log('[Reset] Cleared all alerts');
     }
+
+    res.json({ success: true });
 });
 
 // Get latest readings (optionally filtered by device)
