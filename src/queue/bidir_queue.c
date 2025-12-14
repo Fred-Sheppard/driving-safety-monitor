@@ -31,10 +31,11 @@ bool bidir_queue_push(const bidir_message_t *msg)
         return false;
     }
 
+    // If full, overwrite oldest by advancing tail
     if (queue.count >= BIDIR_QUEUE_SIZE) {
-        xSemaphoreGive(queue.mutex);
-        ESP_LOGW(TAG, "Queue full, dropping message");
-        return false;
+        queue.tail = (queue.tail + 1) % BIDIR_QUEUE_SIZE;
+        queue.count--;
+        ESP_LOGW(TAG, "Queue full, overwriting oldest");
     }
 
     queue.buffer[queue.head] = *msg;
