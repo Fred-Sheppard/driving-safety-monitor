@@ -16,17 +16,14 @@
 
 static const char *TAG = "main";
 
-// Queue handles (declared extern in message_types.h)
 QueueHandle_t sensor_queue = NULL;
 QueueHandle_t batch_queue = NULL;
 QueueHandle_t mqtt_queue = NULL;
-QueueHandle_t command_bidir_queue = NULL; // Placeholder for FreeRTOS queue (unused)
-
+QueueHandle_t command_bidir_queue = NULL;
 void app_main(void)
 {
     ESP_LOGI(TAG, "Driving Safety Monitor starting...");
 
-    // 1. Initialize NVS (required for WiFi)
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
         ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
@@ -35,19 +32,18 @@ void app_main(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
-    // 1.5. (cba changing all)
+
     if (sensor_i2c_init() != ESP_OK)
     {
         ESP_LOGE(TAG, "I2C init failed");
         return;
     }
     ESP_LOGI(TAG, "I2C init successful");
-    // 2. Create queues
+
     mqtt_queue = xQueueCreate(MQTT_QUEUE_SIZE, sizeof(mqtt_message_t));
     batch_queue = xQueueCreate(BATCH_QUEUE_SIZE, sizeof(sensor_batch_t));
     sensor_queue = xQueueCreate(SENSOR_QUEUE_SIZE, sizeof(sensor_reading_t));
-    bidir_queue_init(); // Initialize bidirectional command/response queue
-
+    bidir_queue_init();
     if (mqtt_queue == NULL || batch_queue == NULL || sensor_queue == NULL)
     {
         ESP_LOGE(TAG, "Failed to create queues");
@@ -55,28 +51,23 @@ void app_main(void)
     }
     ESP_LOGI(TAG, "Queues created successfully");
 
-    // 3. Initialize WiFi (will keep retrying in background)
     ESP_ERROR_CHECK(wifi_manager_init());
 
-    // 4. Initialize and start MQTT (will connect when WiFi is ready)
     ESP_ERROR_CHECK(mqtt_manager_init());
     ESP_ERROR_CHECK(mqtt_manager_start());
     ESP_LOGI(TAG, "MQTT client initialized (waiting for WiFi)");
 
-    // Initialize the display
+    // TODO: Log a warning if display is not connected
     display_init();
-    // Stack needs to be large due to JSON serialization of batches
-    xTaskCreate(mqtt_task, "mqtt", 16384, NULL, MQTT_TASK_PRIORITY, NULL);
 
+    // Large stack due to JSON serialization of batches
+    xTaskCreate(mqtt_task, "mqtt", 16384, NULL, MQTT_TASK_PRIORITY, NULL);
     xTaskCreate(processing_task, "process", 4096, NULL, PROCESSING_TASK_PRIORITY, NULL);
     xTaskCreate(sensor_task, "sensor", 4096, NULL, SENSOR_TASK_PRIORITY, NULL);
     xTaskCreate(displayTask, "display", 8192, NULL, SCREEN_TASK_PRIORITY, NULL);
 
-    // Initialize tracing and start stats task
     trace_init();
     trace_start_stats_task();
 
     ESP_LOGI(TAG, "Tasks created, system running");
-    // TEMPORARY: Send mock data for testing
-    // send_mock_data();
 }
