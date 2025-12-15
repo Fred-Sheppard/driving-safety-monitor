@@ -12,6 +12,10 @@
 #error "WIFI_PASSWORD must be defined in config_local.h"
 #endif
 
+#ifndef DEVICE_NAME
+#define DEVICE_NAME "DriveMonitor"
+#endif
+
 #define IMU_SAMPLE_RATE_HZ 100
 #define SENSOR_INTERVAL_MS (1000 / IMU_SAMPLE_RATE_HZ)
 

@@ -18,12 +18,20 @@ static void drawMain() { drawMainScreen(); }
 static void drawCountdown() { drawWarningCountdown(countdownValue, true); }
 static void drawCrash() { drawCrashScreen(); }
 static void drawCaution() { drawCautionScreen(); }
+static void drawSettings() { drawSettingsScreen(); }
+static void drawWifiScan() { drawWifiScanScreen(); }
+static void drawKeyboard() { drawKeyboardScreen(); }
+static void drawTouchTest() { drawTouchTestScreen(); }
 
 static const screen_t screens[] = {
     [STATE_MAIN] = {drawMain, 0},
     [STATE_WARNING_COUNTDOWN] = {drawCountdown, 0}, // handled specially
     [STATE_CRASH] = {drawCrash, CRASH_SCREEN_TIMEOUT_MS},
     [STATE_NORMAL_WARNING] = {drawCaution, WARNING_SCREEN_TIMEOUT_MS},
+    [STATE_SETTINGS] = {drawSettings, 0},
+    [STATE_WIFI_SCAN] = {drawWifiScan, 0},
+    [STATE_KEYBOARD] = {drawKeyboard, 0},
+    [STATE_TOUCH_TEST] = {drawTouchTest, 0},
 };
 
 // State
@@ -126,6 +134,16 @@ void displayTask(void *pvParameters)
     {
       if (state == STATE_WARNING_COUNTDOWN)
         handleCountdownState(currentTime);
+      else if (state == STATE_MAIN)
+        handleMainScreenTouch();
+      else if (state == STATE_SETTINGS)
+        handleSettingsScreenTouch();
+      else if (state == STATE_WIFI_SCAN)
+        handleWifiScanScreenTouch();
+      else if (state == STATE_KEYBOARD)
+        handleKeyboardScreenTouch();
+      else if (state == STATE_TOUCH_TEST)
+        handleTouchTestScreenTouch();
       else
         handleStateTimeout(currentTime, screens[state].timeout_ms);
     }
@@ -145,3 +163,13 @@ void triggerWarningCountdown()
 void triggerNormalWarning() { set_state(STATE_NORMAL_WARNING); }
 void triggerCrashScreen() { set_state(STATE_CRASH); }
 void returnToMainScreen() { set_state(STATE_MAIN); }
+void triggerSettingsScreen() { set_state(STATE_SETTINGS); }
+void triggerWifiScanScreen() { set_state(STATE_WIFI_SCAN); }
+
+void triggerKeyboardScreen(const char *ssid)
+{
+  setSelectedSsid(ssid);
+  set_state(STATE_KEYBOARD);
+}
+
+void triggerTouchTestScreen() { set_state(STATE_TOUCH_TEST); }

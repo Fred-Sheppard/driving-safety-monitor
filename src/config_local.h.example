@@ -3,6 +3,9 @@
 
 // Copy this file to config_local.h and fill in your values
 
+// Device name (displayed in settings)
+#define DEVICE_NAME "DriveMonitor-01"
+
 // WiFi credentials (required)
 #define WIFI_SSID "your_wifi_ssid"
 #define WIFI_PASSWORD "your_wifi_password"

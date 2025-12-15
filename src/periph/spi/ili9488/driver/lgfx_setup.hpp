@@ -44,7 +44,7 @@ public:
         touch_cfg.freq     = 1000000;
         touch_cfg.pin_cs   = 33;
         touch_cfg.pin_int  = 36;
-        touch_cfg.offset_rotation = 0;
+        touch_cfg.offset_rotation = 6;  // Mirror X axis
         _touch.config(touch_cfg);
         _panel.setTouch(&_touch);
 

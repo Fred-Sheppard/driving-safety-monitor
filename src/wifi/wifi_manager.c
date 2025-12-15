@@ -17,10 +17,14 @@ static const char *TAG = "wifi_manager";
 
 static EventGroupHandle_t s_wifi_event_group = NULL;
 static int s_retry_num = 0;
+static volatile bool s_scan_done = false;
 
 static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                                int32_t event_id, void *event_data) {
-    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_SCAN_DONE) {
+        s_scan_done = true;
+        ESP_LOGI(TAG, "WiFi scan complete");
+    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         wifi_event_sta_disconnected_t *disconn = (wifi_event_sta_disconnected_t *)event_data;
 
         // Clear connected bit so mqtt_manager knows we're offline
@@ -154,4 +158,77 @@ bool wifi_manager_is_connected(void) {
     }
     EventBits_t bits = xEventGroupGetBits(s_wifi_event_group);
     return (bits & WIFI_CONNECTED_BIT) != 0;
+}
+
+esp_err_t wifi_manager_start_scan(void) {
+    s_scan_done = false;
+
+    // Stop any ongoing scan and disconnect to allow scanning
+    esp_wifi_scan_stop();
+    esp_wifi_disconnect();
+
+    wifi_scan_config_t scan_config = {0};
+    scan_config.ssid = NULL;
+    scan_config.bssid = NULL;
+    scan_config.channel = 0;
+    scan_config.show_hidden = false;
+    scan_config.scan_type = WIFI_SCAN_TYPE_ACTIVE;
+    scan_config.scan_time.active.min = 100;
+    scan_config.scan_time.active.max = 300;
+
+    ESP_LOGI(TAG, "Starting WiFi scan...");
+    esp_err_t err = esp_wifi_scan_start(&scan_config, false);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Scan start failed: %s", esp_err_to_name(err));
+    }
+    return err;
+}
+
+uint16_t wifi_manager_get_scan_results(wifi_scan_result_t *results, uint16_t max_results) {
+    uint16_t ap_count = 0;
+    esp_wifi_scan_get_ap_num(&ap_count);
+    ESP_LOGI(TAG, "Scan found %d networks", ap_count);
+
+    if (ap_count == 0) return 0;
+    if (ap_count > max_results) ap_count = max_results;
+
+    wifi_ap_record_t *ap_list = malloc(sizeof(wifi_ap_record_t) * ap_count);
+    if (!ap_list) {
+        ESP_LOGE(TAG, "Failed to allocate memory for scan results");
+        return 0;
+    }
+
+    esp_wifi_scan_get_ap_records(&ap_count, ap_list);
+
+    for (int i = 0; i < ap_count; i++) {
+        strncpy(results[i].ssid, (char *)ap_list[i].ssid, WIFI_SSID_MAX_LEN - 1);
+        results[i].ssid[WIFI_SSID_MAX_LEN - 1] = '\0';
+        results[i].rssi = ap_list[i].rssi;
+        results[i].authmode = ap_list[i].authmode;
+        ESP_LOGI(TAG, "  %d. %s (RSSI: %d)", i + 1, results[i].ssid, results[i].rssi);
+    }
+
+    free(ap_list);
+    return ap_count;
+}
+
+bool wifi_manager_scan_done(void) {
+    return s_scan_done;
+}
+
+esp_err_t wifi_manager_connect(const char *ssid, const char *password) {
+    ESP_LOGI(TAG, "Connecting to: %s", ssid);
+
+    wifi_config_t wifi_config = {
+        .sta = {
+            .threshold.authmode = WIFI_AUTH_WPA_WPA2_PSK,
+            .sae_pwe_h2e = WPA3_SAE_PWE_BOTH,
+        },
+    };
+    strncpy((char *)wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid) - 1);
+    strncpy((char *)wifi_config.sta.password, password, sizeof(wifi_config.sta.password) - 1);
+
+    esp_wifi_disconnect();
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
+    return esp_wifi_connect();
 }

@@ -1,15 +1,38 @@
 #include "screens.hpp"
 #include "map_elements.hpp"
 #include "../ili9488_utils.hpp"
+#include "display/display_manager_utils.hpp"
+#include "display/display_manager.hpp"
 #include "esp_log.h"
+#include <math.h>
 
 static const char *TAG = "screen_main";
+
+// Settings button position (gear icon in top right)
+#define SETTINGS_BTN_X 420
+#define SETTINGS_BTN_Y 5
+#define SETTINGS_BTN_SIZE 40
 
 static void drawGrass()
 {
   tft.fillScreen(COLOR_GRASS_GREEN);
   for (int i = 0; i < 40; i++)
     tft.fillCircle(rnd(0, SCREEN_WIDTH), rnd(0, SCREEN_HEIGHT), rnd(5, 15), COLOR_DARK_GREEN);
+}
+
+static void drawSettingsIcon(int cx, int cy, int r)
+{
+  // Gear icon: circle with notches
+  tft.fillCircle(cx, cy, r - 4, TFT_WHITE);
+  tft.fillCircle(cx, cy, r - 8, TFT_BLACK);
+  // Draw gear teeth
+  for (int i = 0; i < 8; i++)
+  {
+    float angle = i * 3.14159f / 4.0f;
+    int x1 = cx + (r - 2) * cos(angle);
+    int y1 = cy + (r - 2) * sin(angle);
+    tft.fillCircle(x1, y1, 4, TFT_WHITE);
+  }
 }
 
 static void drawHeader()
@@ -20,11 +43,9 @@ static void drawHeader()
   tft.setCursor(10, 20);
   tft.println("GPS VIEW");
 
-  tft.drawCircle(430, 25, 12, TFT_WHITE);
-  tft.fillTriangle(430, 15, 426, 23, 434, 23, TFT_WHITE);
-  tft.setTextSize(1);
-  tft.setCursor(426, 10);
-  tft.println("N");
+  // Settings gear icon (top right)
+  drawSettingsIcon(SETTINGS_BTN_X + SETTINGS_BTN_SIZE / 2,
+                   SETTINGS_BTN_Y + SETTINGS_BTN_SIZE / 2, 18);
 }
 
 static void drawFooter()
@@ -47,4 +68,16 @@ void drawMainScreen()
   drawCar();
   drawHeader();
   drawFooter();
+}
+
+bool handleMainScreenTouch()
+{
+  if (checkButtonTouch(SETTINGS_BTN_X, SETTINGS_BTN_Y,
+                       SETTINGS_BTN_SIZE, SETTINGS_BTN_SIZE))
+  {
+    ESP_LOGI(TAG, "Settings button pressed");
+    triggerSettingsScreen();
+    return true;
+  }
+  return false;
 }

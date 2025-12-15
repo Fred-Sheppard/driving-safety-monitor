@@ -15,7 +15,11 @@ extern "C"
     STATE_MAIN,
     STATE_WARNING_COUNTDOWN,
     STATE_CRASH,
-    STATE_NORMAL_WARNING
+    STATE_NORMAL_WARNING,
+    STATE_SETTINGS,
+    STATE_WIFI_SCAN,
+    STATE_KEYBOARD,
+    STATE_TOUCH_TEST
   } AppState;
 
   extern AppState currentState;
@@ -30,6 +34,10 @@ extern "C"
   void triggerNormalWarning(void);
   void triggerCrashScreen(void);
   void returnToMainScreen(void);
+  void triggerSettingsScreen(void);
+  void triggerWifiScanScreen(void);
+  void triggerKeyboardScreen(const char *ssid);
+  void triggerTouchTestScreen(void);
 
 #ifdef __cplusplus
 }

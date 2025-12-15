@@ -5,6 +5,19 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define WIFI_MAX_SCAN_RESULTS 15
+#define WIFI_SSID_MAX_LEN 33
+
+typedef struct {
+    char ssid[WIFI_SSID_MAX_LEN];
+    int8_t rssi;
+    uint8_t authmode;
+} wifi_scan_result_t;
+
 /**
  * @brief Initialize WiFi in station mode
  * @return ESP_OK on success, error code otherwise
@@ -23,5 +36,37 @@ bool wifi_manager_wait_connected(uint32_t timeout_ms);
  * @return true if connected
  */
 bool wifi_manager_is_connected(void);
+
+/**
+ * @brief Start async WiFi scan
+ * @return ESP_OK on success
+ */
+esp_err_t wifi_manager_start_scan(void);
+
+/**
+ * @brief Get scan results (call after scan completes)
+ * @param results Array to store results
+ * @param max_results Maximum number of results to return
+ * @return Number of networks found
+ */
+uint16_t wifi_manager_get_scan_results(wifi_scan_result_t *results, uint16_t max_results);
+
+/**
+ * @brief Check if scan is complete
+ * @return true if scan done
+ */
+bool wifi_manager_scan_done(void);
+
+/**
+ * @brief Connect to a new WiFi network
+ * @param ssid Network SSID
+ * @param password Network password
+ * @return ESP_OK on success
+ */
+esp_err_t wifi_manager_connect(const char *ssid, const char *password);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // WIFI_MANAGER_H
