@@ -29,7 +29,11 @@ void bidir_queue_init(void)
 bool bidir_queue_push(const bidir_message_t *msg)
 {
     if (!queue || !msg) return false;
-    return ring_buffer_push(queue, msg);
+    bool was_full = false;
+    bool ok = ring_buffer_push(queue, msg, &was_full);
+    if (ok && was_full)
+        ESP_LOGW(TAG, "bidir_queue full, overwrote oldest message");
+    return ok;
 }
 
 bool bidir_queue_pop(bidir_direction_t direction, bidir_message_t *msg)

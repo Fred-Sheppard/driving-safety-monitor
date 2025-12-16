@@ -29,7 +29,8 @@ void ring_buffer_destroy(ring_buffer_t *rb);
 
 // Push an item to the buffer (overwrites oldest if full)
 // Returns true on success, false if mutex timeout
-bool ring_buffer_push(ring_buffer_t *rb, const void *item);
+// If was_full is not NULL, it is set to true if an item was overwritten
+bool ring_buffer_push(ring_buffer_t *rb, const void *item, bool *was_full);
 
 // Pop the oldest item from the buffer
 // Returns true if item was popped, false if empty or mutex timeout

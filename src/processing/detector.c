@@ -67,9 +67,12 @@ static void handle_detection(detector_config_t *det, const sensor_reading_t *dat
         ? build_crash_message(value)
         : build_warning_message(det->warning_event, data);
 
-    if (!ring_buffer_push(mqtt_rb, &msg)) {
+    bool was_full = false;
+    if (!ring_buffer_push(mqtt_rb, &msg, &was_full)) {
         ESP_LOGW(TAG, "mqtt_rb: failed to push %s alert", det->name);
     } else {
+        if (was_full)
+            ESP_LOGW(TAG, "mqtt_rb full, overwrote oldest alert");
         ESP_LOGI(TAG, "%s detected! Value: %.2f g", det->name, value);
     }
 

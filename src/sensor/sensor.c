@@ -72,8 +72,11 @@ void sensor_task(void *pvParameters)
         TRACE_TASK_RUN(TAG);
         sensor_reading_t r = read_imu();
 
-        if (!ring_buffer_push(sensor_rb, &r))
+        bool was_full = false;
+        if (!ring_buffer_push(sensor_rb, &r, &was_full))
             ESP_LOGW(TAG, "sensor_rb: failed to push sensor reading");
+        else if (was_full)
+            ESP_LOGW(TAG, "sensor_rb full, overwrote oldest reading");
 
         vTaskDelay(pdMS_TO_TICKS(SENSOR_INTERVAL_MS));
     }

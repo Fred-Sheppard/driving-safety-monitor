@@ -76,9 +76,14 @@ static void batch_telemetry_reading(const sensor_reading_t *data)
         current_batch.sample_count = batch_index;
 
         // Send to batch ring buffer
-        if (!ring_buffer_push(batch_rb, &current_batch))
+        bool was_full = false;
+        if (!ring_buffer_push(batch_rb, &current_batch, &was_full))
         {
             ESP_LOGW(TAG, "batch_rb: failed to push telemetry batch");
+        }
+        else if (was_full)
+        {
+            ESP_LOGW(TAG, "batch_rb full, overwrote oldest batch");
         }
 
         // Reset for next batch
