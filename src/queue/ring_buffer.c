@@ -3,7 +3,6 @@
 #include "freertos/semphr.h"
 #include "esp_log.h"
 #include <string.h>
-#include <stdlib.h>
 
 static const char *TAG = "ring_buffer";
 
@@ -22,18 +21,18 @@ struct ring_buffer
 
 ring_buffer_t *ring_buffer_create(size_t capacity, size_t item_size)
 {
-    ring_buffer_t *rb = malloc(sizeof(ring_buffer_t));
+    ring_buffer_t *rb = pvPortMalloc(sizeof(ring_buffer_t));
     if (!rb)
     {
         ESP_LOGE(TAG, "Failed to allocate ring buffer struct");
         return NULL;
     }
 
-    rb->buffer = malloc(capacity * item_size);
+    rb->buffer = pvPortMalloc(capacity * item_size);
     if (!rb->buffer)
     {
         ESP_LOGE(TAG, "Failed to allocate ring buffer storage");
-        free(rb);
+        vPortFree(rb);
         return NULL;
     }
 
@@ -41,8 +40,8 @@ ring_buffer_t *ring_buffer_create(size_t capacity, size_t item_size)
     if (!rb->mutex)
     {
         ESP_LOGE(TAG, "Failed to create mutex");
-        free(rb->buffer);
-        free(rb);
+        vPortFree(rb->buffer);
+        vPortFree(rb);
         return NULL;
     }
 
@@ -62,8 +61,8 @@ void ring_buffer_destroy(ring_buffer_t *rb)
         return;
     if (rb->mutex)
         vSemaphoreDelete(rb->mutex);
-    free(rb->buffer);
-    free(rb);
+    vPortFree(rb->buffer);
+    vPortFree(rb);
 }
 
 static inline void *item_ptr(ring_buffer_t *rb, size_t index)
