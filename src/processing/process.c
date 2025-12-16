@@ -1,10 +1,11 @@
 #include "message_types.h"
+#include "queue/ring_buffer.h"
+#include "queue/bidir_queue.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "trace/trace.h"
 #include "detector.h"
-#include "queue/bidir_queue.h"
 
 static const char *TAG = "process";
 
@@ -43,11 +44,16 @@ void processing_task(void *pvParameters)
             handle_bidir_command(&bidir_msg);
         }
 
-        // Wait for sensor data (with timeout)
-        if (xQueueReceive(sensor_queue, &sensor_data, pdMS_TO_TICKS(100)) == pdTRUE)
+        // Process sensor data (polling)
+        if (ring_buffer_pop(sensor_rb, &sensor_data))
         {
             detectors_check_all(&sensor_data);
             batch_telemetry_reading(&sensor_data);
+        }
+        else
+        {
+            // No data available, yield to other tasks
+            vTaskDelay(pdMS_TO_TICKS(10));
         }
     }
 }
@@ -69,10 +75,15 @@ static void batch_telemetry_reading(const sensor_reading_t *data)
     {
         current_batch.sample_count = batch_index;
 
-        // Send to batch_queue (non-blocking)
-        if (xQueueSend(batch_queue, &current_batch, 0) != pdTRUE)
+        // Send to batch ring buffer
+        bool was_full = false;
+        if (!ring_buffer_push(batch_rb, &current_batch, &was_full))
         {
-            ESP_LOGW(TAG, "batch_queue: failed to queue telemetry batch. Queue full");
+            ESP_LOGW(TAG, "batch_rb: failed to push telemetry batch");
+        }
+        else if (was_full)
+        {
+            ESP_LOGW(TAG, "batch_rb full, overwrote oldest batch");
         }
 
         // Reset for next batch

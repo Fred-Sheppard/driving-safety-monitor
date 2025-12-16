@@ -3,9 +3,10 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
 #include "config.h"
+
+// Forward declaration for ring buffer
+typedef struct ring_buffer ring_buffer_t;
 
 // Message type enumeration
 typedef enum {
@@ -111,10 +112,9 @@ typedef struct {
     } data;
 } bidir_message_t;
 
-// External queue handles (defined in main.c)
-extern QueueHandle_t sensor_queue;
-extern QueueHandle_t batch_queue;
-extern QueueHandle_t mqtt_queue;
-extern QueueHandle_t command_bidir_queue;  // Bidirectional command/response queue
+// External ring buffer handles (defined in main.c)
+extern ring_buffer_t *sensor_rb;
+extern ring_buffer_t *batch_rb;
+extern ring_buffer_t *mqtt_rb;
 
 #endif // MESSAGE_TYPES_H
