@@ -5,6 +5,7 @@
 #include "trace/trace.h"
 #include "detector.h"
 #include "queue/bidir_queue.h"
+#include "queue/policy_based_queue.h"
 
 static const char *TAG = "process";
 
@@ -70,9 +71,9 @@ static void batch_telemetry_reading(const sensor_reading_t *data)
         current_batch.sample_count = batch_index;
 
         // Send to batch_queue (non-blocking)
-        if (xQueueSend(batch_queue, &current_batch, 0) != pdTRUE)
+        if (!send_to_queue(batch_queue, &current_batch, sizeof(current_batch)))
         {
-            ESP_LOGW(TAG, "batch_queue: failed to queue telemetry batch. Queue full");
+            ESP_LOGW(TAG, "batch_queue: failed to queue telemetry batch");
         }
 
         // Reset for next batch
@@ -89,9 +90,7 @@ static void send_status_response(void)
             .crash = detector_get_threshold(DETECTOR_CRASH),
             .braking = detector_get_threshold(DETECTOR_HARSH_BRAKING),
             .accel = detector_get_threshold(DETECTOR_HARSH_ACCEL),
-            .cornering = detector_get_threshold(DETECTOR_HARSH_CORNERING)
-        }
-    };
+            .cornering = detector_get_threshold(DETECTOR_HARSH_CORNERING)}};
 
     if (!bidir_queue_push(&response))
     {

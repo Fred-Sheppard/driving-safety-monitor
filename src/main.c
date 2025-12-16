@@ -62,7 +62,7 @@ void app_main(void)
 
     // Large stack due to JSON serialization of batches
     xTaskCreate(mqtt_task, "mqtt", 16384, NULL, MQTT_TASK_PRIORITY, NULL);
-    xTaskCreate(processing_task, "process", 4096, NULL, PROCESSING_TASK_PRIORITY, NULL);
+    xTaskCreate(processing_task, "process", 8192, NULL, PROCESSING_TASK_PRIORITY, NULL);
     xTaskCreate(sensor_task, "sensor", 4096, NULL, SENSOR_TASK_PRIORITY, NULL);
     xTaskCreate(displayTask, "display", 8192, NULL, SCREEN_TASK_PRIORITY, NULL);
 
