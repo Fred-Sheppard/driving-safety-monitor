@@ -28,7 +28,7 @@ jobs:
           fetch-depth: 0  # Need full history for git diff
 
       - name: Run Cluain
-        uses: joshsloggett/cluain@main  # Change to your username
+        uses: sloggo/cluain@main  # Change to your username
         with:
           threshold: '0.95'
           exclude: '/tests /test /bench /examples'
