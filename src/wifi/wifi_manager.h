@@ -65,6 +65,19 @@ bool wifi_manager_scan_done(void);
  */
 esp_err_t wifi_manager_connect(const char *ssid, const char *password);
 
+/**
+ * @brief Disconnect from current WiFi network
+ * @return ESP_OK on success
+ */
+esp_err_t wifi_manager_disconnect(void);
+
+/**
+ * @brief Get the SSID of the currently connected network
+ * @param ssid_buf Buffer to store SSID (must be at least WIFI_SSID_MAX_LEN)
+ * @return true if connected and SSID retrieved, false otherwise
+ */
+bool wifi_manager_get_ssid(char *ssid_buf);
+
 #ifdef __cplusplus
 }
 #endif

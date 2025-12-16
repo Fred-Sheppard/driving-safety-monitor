@@ -18,6 +18,7 @@ static const char *TAG = "wifi_manager";
 static EventGroupHandle_t s_wifi_event_group = NULL;
 static int s_retry_num = 0;
 static volatile bool s_scan_done = false;
+static volatile bool s_manual_disconnect = false;
 
 static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                                int32_t event_id, void *event_data) {
@@ -29,6 +30,12 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
 
         // Clear connected bit so mqtt_manager knows we're offline
         xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+
+        if (s_manual_disconnect) {
+            ESP_LOGI(TAG, "Manual disconnect, not reconnecting");
+            s_manual_disconnect = false;
+            return;
+        }
 
         s_retry_num++;
         ESP_LOGW(TAG, "Disconnected (reason: %d), reconnecting... (attempt %d)",
@@ -231,4 +238,24 @@ esp_err_t wifi_manager_connect(const char *ssid, const char *password) {
     esp_wifi_disconnect();
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     return esp_wifi_connect();
+}
+
+esp_err_t wifi_manager_disconnect(void) {
+    ESP_LOGI(TAG, "Disconnecting from WiFi");
+    s_manual_disconnect = true;
+    xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+    return esp_wifi_disconnect();
+}
+
+bool wifi_manager_get_ssid(char *ssid_buf) {
+    if (!wifi_manager_is_connected() || ssid_buf == NULL) {
+        return false;
+    }
+    wifi_config_t wifi_config;
+    if (esp_wifi_get_config(WIFI_IF_STA, &wifi_config) == ESP_OK) {
+        strncpy(ssid_buf, (char *)wifi_config.sta.ssid, WIFI_SSID_MAX_LEN - 1);
+        ssid_buf[WIFI_SSID_MAX_LEN - 1] = '\0';
+        return true;
+    }
+    return false;
 }
