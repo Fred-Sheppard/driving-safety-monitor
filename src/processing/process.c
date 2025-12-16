@@ -5,6 +5,7 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "trace/trace.h"
+#include "watchdog/watchdog.h"
 #include "detector.h"
 
 static const char *TAG = "process";
@@ -33,10 +34,12 @@ void processing_task(void *pvParameters)
     detectors_init();
 
     ESP_LOGI(TAG, "Processing task started");
+    watchdog_register_task();
 
     while (1)
     {
         TRACE_TASK_RUN(TAG);
+        watchdog_feed();
 
         // Process all pending inbound commands (non-blocking)
         while (bidir_queue_pop(BIDIR_INBOUND, &bidir_msg))

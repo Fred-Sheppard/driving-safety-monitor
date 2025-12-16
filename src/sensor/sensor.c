@@ -8,6 +8,7 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "trace/trace.h"
+#include "watchdog/watchdog.h"
 #include <math.h>
 
 static const char *TAG = "sensor";
@@ -66,10 +67,13 @@ static sensor_reading_t read_mock_imu(void)
 void sensor_task(void *pvParameters)
 {
     ESP_LOGI(TAG, "Sensor task running");
+    watchdog_register_task();
 
     while (1)
     {
         TRACE_TASK_RUN(TAG);
+        watchdog_feed();
+
         sensor_reading_t r = read_imu();
 
         bool was_full = false;

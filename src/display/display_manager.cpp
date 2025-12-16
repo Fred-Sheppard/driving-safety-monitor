@@ -3,6 +3,7 @@
 #include "periph/spi/ili9488/screens/screens.hpp"
 #include "esp_log.h"
 #include "trace/trace.h"
+#include "watchdog/watchdog.h"
 
 static const char *TAG = "display";
 
@@ -111,9 +112,13 @@ static void handleStateTimeout(unsigned long currentTime, uint32_t timeout)
 
 void displayTask(void *pvParameters)
 {
+  watchdog_register_task();
+
   while (1)
   {
     TRACE_TASK_RUN(TAG);
+    watchdog_feed();
+
     unsigned long currentTime = millis();
 
     bool stateChanged;

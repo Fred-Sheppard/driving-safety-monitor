@@ -13,6 +13,7 @@
 #include "trace/trace.h"
 #include "queue/bidir_queue.h"
 #include "queue/ring_buffer.h"
+#include "watchdog/watchdog.h"
 
 static const char *TAG = "main";
 
@@ -22,6 +23,9 @@ ring_buffer_t *mqtt_rb = NULL;
 void app_main(void)
 {
     ESP_LOGI(TAG, "Driving Safety Monitor starting...");
+
+    // Initialize watchdog early
+    ESP_ERROR_CHECK(watchdog_init(WATCHDOG_TIMEOUT_SECONDS));
 
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||

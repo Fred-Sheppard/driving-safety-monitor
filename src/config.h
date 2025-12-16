@@ -33,6 +33,8 @@
 
 #define WIFI_MAXIMUM_RETRY 10
 
+#define WATCHDOG_TIMEOUT_SECONDS 10
+
 #define MQTT_BROKER_URI "mqtt://alderaan.software-engineering.ie:1883"
 #define MQTT_TOPIC_ALERTS "driving/alerts"
 #define MQTT_TOPIC_TELEMETRY "driving/telemetry"

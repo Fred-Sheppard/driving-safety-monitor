@@ -11,6 +11,7 @@
 #include "mqtt_client.h"
 #include "esp_log.h"
 #include "trace/trace.h"
+#include "watchdog/watchdog.h"
 
 static const char *TAG = "mqtt_task";
 
@@ -93,10 +94,12 @@ void mqtt_task(void *pvParameters)
 {
     (void)pvParameters;
     ESP_LOGI(TAG, "mqtt_task started");
+    watchdog_register_task();
 
     while (1)
     {
         TRACE_TASK_RUN(TAG);
+        watchdog_feed();
 
         if (!mqtt_manager_is_connected())
         {
