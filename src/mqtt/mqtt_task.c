@@ -4,6 +4,7 @@
 #include "config.h"
 #include "message_types.h"
 #include "queue/bidir_queue.h"
+#include "queue/ring_buffer.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -28,7 +29,7 @@ static void process_bidir_outbound(void)
 static void process_alerts(void)
 {
     mqtt_message_t alert_msg;
-    while (xQueueReceive(mqtt_queue, &alert_msg, 0) == pdTRUE)
+    while (ring_buffer_pop(mqtt_rb, &alert_msg))
     {
         const char *json_payload = serialize_alert(&alert_msg);
         if (json_payload == NULL)
@@ -55,7 +56,7 @@ static void process_alerts(void)
 static void process_telemetry(void)
 {
     sensor_batch_t batch;
-    if (xQueueReceive(batch_queue, &batch, pdMS_TO_TICKS(1000)) == pdTRUE)
+    if (ring_buffer_pop(batch_rb, &batch))
     {
         const char *json_payload = serialize_batch(&batch);
         if (json_payload == NULL)

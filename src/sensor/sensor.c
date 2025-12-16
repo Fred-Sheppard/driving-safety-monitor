@@ -2,6 +2,8 @@
 #include "periph/i2c/i2c_bus.h"
 #include "periph/i2c/mpu6050/mpu6050.h"
 #include "config.h"
+#include "message_types.h"
+#include "queue/ring_buffer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -70,8 +72,8 @@ void sensor_task(void *pvParameters)
         TRACE_TASK_RUN(TAG);
         sensor_reading_t r = read_imu();
 
-        if (xQueueSend(sensor_queue, &r, 0) != pdTRUE)
-            ESP_LOGW(TAG, "sensor_queue: failed to queue sensor reading. Queue full");
+        if (!ring_buffer_push(sensor_rb, &r))
+            ESP_LOGW(TAG, "sensor_rb: failed to push sensor reading");
 
         vTaskDelay(pdMS_TO_TICKS(SENSOR_INTERVAL_MS));
     }

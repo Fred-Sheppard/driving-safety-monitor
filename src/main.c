@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/queue.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "config.h"
@@ -13,13 +12,13 @@
 #include "display/display_manager.hpp"
 #include "trace/trace.h"
 #include "queue/bidir_queue.h"
+#include "queue/ring_buffer.h"
 
 static const char *TAG = "main";
 
-QueueHandle_t sensor_queue = NULL;
-QueueHandle_t batch_queue = NULL;
-QueueHandle_t mqtt_queue = NULL;
-QueueHandle_t command_bidir_queue = NULL;
+ring_buffer_t *sensor_rb = NULL;
+ring_buffer_t *batch_rb = NULL;
+ring_buffer_t *mqtt_rb = NULL;
 void app_main(void)
 {
     ESP_LOGI(TAG, "Driving Safety Monitor starting...");
@@ -40,16 +39,16 @@ void app_main(void)
     }
     ESP_LOGI(TAG, "I2C init successful");
 
-    mqtt_queue = xQueueCreate(MQTT_QUEUE_SIZE, sizeof(mqtt_message_t));
-    batch_queue = xQueueCreate(BATCH_QUEUE_SIZE, sizeof(sensor_batch_t));
-    sensor_queue = xQueueCreate(SENSOR_QUEUE_SIZE, sizeof(sensor_reading_t));
+    mqtt_rb = ring_buffer_create(MQTT_QUEUE_SIZE, sizeof(mqtt_message_t));
+    batch_rb = ring_buffer_create(BATCH_QUEUE_SIZE, sizeof(sensor_batch_t));
+    sensor_rb = ring_buffer_create(SENSOR_QUEUE_SIZE, sizeof(sensor_reading_t));
     bidir_queue_init();
-    if (mqtt_queue == NULL || batch_queue == NULL || sensor_queue == NULL)
+    if (mqtt_rb == NULL || batch_rb == NULL || sensor_rb == NULL)
     {
-        ESP_LOGE(TAG, "Failed to create queues");
+        ESP_LOGE(TAG, "Failed to create ring buffers");
         return;
     }
-    ESP_LOGI(TAG, "Queues created successfully");
+    ESP_LOGI(TAG, "Ring buffers created successfully");
 
     ESP_ERROR_CHECK(wifi_manager_init());
 
