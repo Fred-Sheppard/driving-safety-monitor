@@ -3,7 +3,7 @@
 #include "display/display_manager.hpp"
 #include <math.h>
 
-#define GRAVITY_G 9.81f
+#define GRAVITY_G 1.0f
 
 static float calculate_dynamic_magnitude(const sensor_reading_t *data)
 {
