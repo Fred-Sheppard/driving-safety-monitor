@@ -12,6 +12,10 @@
 #error "WIFI_PASSWORD must be defined in config_local.h"
 #endif
 
+#ifndef LOG_SENSOR_DATA
+#define LOG_SENSOR_DATA 0
+#endif
+
 #ifndef DEVICE_NAME
 #define DEVICE_NAME "DriveMonitor"
 #endif

@@ -19,4 +19,6 @@
 // #define TRACE_STATS_ENABLED 1
 // #define TRACE_STATS_INTERVAL_MS 5000
 
+// #define LOG_SENSOR_DATA 1
+
 #endif // CONFIG_LOCAL_H

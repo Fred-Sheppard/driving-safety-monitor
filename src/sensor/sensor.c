@@ -76,6 +76,12 @@ void sensor_task(void *pvParameters)
 
         sensor_reading_t r = read_imu();
 
+#if LOG_SENSOR_DATA
+        ESP_LOGI(TAG, "x: %.2f", r.x);
+        ESP_LOGI(TAG, "y: %.2f", r.y);
+        ESP_LOGI(TAG, "z: %.2f", r.z);
+#endif
+
         bool was_full = false;
         if (!ring_buffer_push(sensor_rb, &r, &was_full))
             ESP_LOGW(TAG, "sensor_rb: failed to push sensor reading");
