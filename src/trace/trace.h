@@ -13,7 +13,7 @@ extern "C"
 {
 #endif
 
-// Macro to trace task execution - place at start of task loop
+// Place at start of task loop
 #if TRACE_CONTEXT_SWITCHES
 #define TRACE_TASK_RUN(tag)                                        \
     do                                                             \
@@ -31,31 +31,15 @@ extern "C"
 #define TRACE_TASK_RUN(tag) ((void)0)
 #endif
 
-// Macro to trace specific events
 #define TRACE_EVENT(tag, fmt, ...)           \
     ESP_LOGI("TRACE", "[%lld us] [%s] " fmt, \
              esp_timer_get_time(), tag, ##__VA_ARGS__)
 
-    /**
-     * Initialize the trace module
-     * Call this after creating all tasks you want to monitor
-     */
+    // Call after creating tasks
     esp_err_t trace_init(void);
 
-    /**
-     * Start the trace stats task
-     * Periodically prints task runtime statistics
-     */
     void trace_start_stats_task(void);
-
-    /**
-     * Print current task runtime stats to serial
-     */
     void trace_print_stats(void);
-
-    /**
-     * Log a context switch (call from trace hooks if needed)
-     */
     void trace_log_switch(const char *task_name, bool is_switch_in);
 
 #ifdef __cplusplus
