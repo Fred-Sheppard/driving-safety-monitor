@@ -32,9 +32,9 @@ module.exports = {
     defaults: {
         thresholds: {
             crash: 11.0,
-            braking: 9.0,
-            accel: 7.0,
-            cornering: 8.0
+            braking: 2.0,
+            accel: 1.0,
+            cornering: 2.0
         }
     }
 };
