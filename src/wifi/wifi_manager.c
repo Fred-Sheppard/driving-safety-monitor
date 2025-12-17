@@ -51,31 +51,22 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
 }
 
 static void wifi_scan_and_print(void) {
+    #define SCAN_PRINT_MAX 5
+    wifi_ap_record_t ap_list[SCAN_PRINT_MAX];
     uint16_t ap_count = 0;
-    uint16_t max_aps = 20;
-    wifi_ap_record_t *ap_list = malloc(sizeof(wifi_ap_record_t) * max_aps);
-    if (ap_list == NULL) {
-        ESP_LOGE(TAG, "Failed to allocate memory for scan");
-        return;
-    }
 
     ESP_LOGI(TAG, "Scanning for WiFi networks...");
     esp_wifi_scan_start(NULL, true);  // Blocking scan
     esp_wifi_scan_get_ap_num(&ap_count);
 
-    if (ap_count > max_aps) {
-        ap_count = max_aps;
-    }
+    uint16_t fetch_count = (ap_count > SCAN_PRINT_MAX) ? SCAN_PRINT_MAX : ap_count;
+    esp_wifi_scan_get_ap_records(&fetch_count, ap_list);
 
-    esp_wifi_scan_get_ap_records(&ap_count, ap_list);
-
-    ESP_LOGI(TAG, "Found %d networks:", ap_count);
-    for (int i = 0; i < ap_count; i++) {
-        ESP_LOGI(TAG, "  %d. SSID: %-32s | RSSI: %d | Channel: %d",
+    ESP_LOGI(TAG, "Found %d networks (showing top %d):", ap_count, fetch_count);
+    for (int i = 0; i < fetch_count; i++) {
+        ESP_LOGI(TAG, "  %d. %-32s | RSSI: %d | Ch: %d",
                  i + 1, ap_list[i].ssid, ap_list[i].rssi, ap_list[i].primary);
     }
-
-    free(ap_list);
 }
 
 esp_err_t wifi_manager_init(void) {
@@ -178,22 +169,22 @@ esp_err_t wifi_manager_start_scan(void) {
 }
 
 uint16_t wifi_manager_get_scan_results(wifi_scan_result_t *results, uint16_t max_results) {
+    #define SCAN_RESULTS_MAX 5
+    wifi_ap_record_t ap_list[SCAN_RESULTS_MAX];
     uint16_t ap_count = 0;
+
     esp_wifi_scan_get_ap_num(&ap_count);
     ESP_LOGI(TAG, "Scan found %d networks", ap_count);
 
     if (ap_count == 0) return 0;
-    if (ap_count > max_results) ap_count = max_results;
 
-    wifi_ap_record_t *ap_list = malloc(sizeof(wifi_ap_record_t) * ap_count);
-    if (!ap_list) {
-        ESP_LOGE(TAG, "Failed to allocate memory for scan results");
-        return 0;
-    }
+    uint16_t fetch_count = ap_count;
+    if (fetch_count > SCAN_RESULTS_MAX) fetch_count = SCAN_RESULTS_MAX;
+    if (fetch_count > max_results) fetch_count = max_results;
 
-    esp_wifi_scan_get_ap_records(&ap_count, ap_list);
+    esp_wifi_scan_get_ap_records(&fetch_count, ap_list);
 
-    for (int i = 0; i < ap_count; i++) {
+    for (int i = 0; i < fetch_count; i++) {
         strncpy(results[i].ssid, (char *)ap_list[i].ssid, WIFI_SSID_MAX_LEN - 1);
         results[i].ssid[WIFI_SSID_MAX_LEN - 1] = '\0';
         results[i].rssi = ap_list[i].rssi;
@@ -201,8 +192,7 @@ uint16_t wifi_manager_get_scan_results(wifi_scan_result_t *results, uint16_t max
         ESP_LOGI(TAG, "  %d. %s (RSSI: %d)", i + 1, results[i].ssid, results[i].rssi);
     }
 
-    free(ap_list);
-    return ap_count;
+    return fetch_count;
 }
 
 bool wifi_manager_scan_done(void) {
