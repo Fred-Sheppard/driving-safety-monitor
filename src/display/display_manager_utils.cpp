@@ -18,8 +18,3 @@ bool checkCancelButton()
 {
   return checkButtonTouch(CANCEL_BTN_X, CANCEL_BTN_Y, BUTTON_WIDTH, BUTTON_HEIGHT);
 }
-
-bool checkDismissButton()
-{
-  return checkButtonTouch(DISMISS_BTN_X, DISMISS_BTN_Y, DISMISS_BTN_WIDTH, BUTTON_HEIGHT);
-}

@@ -101,6 +101,16 @@ static void handleCountdownState(unsigned long currentTime)
   }
 }
 
+static void handleNormalWarning()
+{
+  if (checkCancelButton())
+  {
+    ESP_LOGI(TAG, "Normal Warning dismissed by user");
+    set_state(STATE_MAIN);
+    return;
+  }
+}
+
 static void handleStateTimeout(unsigned long currentTime, uint32_t timeout)
 {
   if (timeout > 0 && currentTime - stateStartTime > timeout)
@@ -146,6 +156,8 @@ void displayTask(void *pvParameters)
         handleKeyboardScreenTouch();
       else if (state == STATE_TOUCH_TEST)
         handleTouchTestScreenTouch();
+      else if (state == STATE_NORMAL_WARNING)
+        handleNormalWarning();
       else
         handleStateTimeout(currentTime, screens[state].timeout_ms);
     }
@@ -153,6 +165,7 @@ void displayTask(void *pvParameters)
     vTaskDelay(pdMS_TO_TICKS(DISPLAY_TASK_DELAY_MS));
   }
 }
+
 
 void triggerWarningCountdown(const char *message)
 {
