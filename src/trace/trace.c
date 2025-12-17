@@ -10,12 +10,10 @@
 static const char *TAG = "trace";
 
 #if TRACE_STATS_ENABLED
-// Buffer for vTaskGetRunTimeStats
 #define STATS_BUFFER_SIZE 1024
 static char stats_buffer[STATS_BUFFER_SIZE];
 #endif
 
-// Track previous task for switch logging
 static const char *previous_task_name = NULL;
 
 esp_err_t trace_init(void)
@@ -54,17 +52,14 @@ void trace_print_stats(void)
 {
     ESP_LOGI(TAG, "========== Task Runtime Stats ==========");
 
-    // Get runtime stats
     vTaskGetRunTimeStats(stats_buffer);
 
-    // Print header
     printf("Task            Abs Time        %% Time\n");
     printf("----------------------------------------\n");
     printf("%s", stats_buffer);
 
     ESP_LOGI(TAG, "========================================");
 
-    // Also print task list with states
     ESP_LOGI(TAG, "========== Task States ==========");
     vTaskList(stats_buffer);
     printf("Task            State   Prio    Stack   Num\n");

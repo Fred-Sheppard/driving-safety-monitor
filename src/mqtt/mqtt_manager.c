@@ -10,13 +10,11 @@
 
 static const char *TAG = "mqtt";
 
-// Global state (shared via mqtt_internal.h)
 char g_device_id[DEVICE_ID_LEN] = {0};
 esp_mqtt_client_handle_t g_mqtt_client = NULL;
 bool g_mqtt_connected = false;
 bool g_status_requested = false;
 
-// Device-specific command topic
 static char s_commands_topic[64];
 
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
@@ -72,14 +70,11 @@ esp_err_t mqtt_manager_init(void)
     uint8_t mac[6];
     esp_read_mac(mac, ESP_MAC_WIFI_STA);
 
-    // Set global device ID (just the MAC portion)
+    // Device ID is just MAC, client ID has "driving-" prefix
     snprintf(g_device_id, sizeof(g_device_id), "%02X%02X%02X%02X%02X%02X",
              mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
-    // Client ID includes "driving-" prefix
     snprintf(client_id, sizeof(client_id), "driving-%s", g_device_id);
-
-    // Build device-specific command topic
     snprintf(s_commands_topic, sizeof(s_commands_topic), "driving/commands/%s", g_device_id);
 
     ESP_LOGI(TAG, "Device ID: %s", g_device_id);

@@ -7,14 +7,12 @@
 
 static const char *TAG = "screen_wifi";
 
-// Layout
 #define HEADER_H 55
 #define BACK_BTN_SIZE 40
 #define LIST_START_Y (HEADER_H + 5)
 #define LIST_ITEM_H 45
 #define MAX_VISIBLE_ITEMS 5
 
-// State
 static wifi_scan_result_t s_results[WIFI_MAX_SCAN_RESULTS];
 static uint16_t s_result_count = 0;
 static int s_scroll_offset = 0;
@@ -34,7 +32,6 @@ const char *getSelectedSsid()
 
 static void drawSignalBars(int x, int y, int rssi)
 {
-  // 4 bars based on RSSI
   int bars = (rssi > -50) ? 4 : (rssi > -60) ? 3
                              : (rssi > -70)   ? 2
                                               : 1;
@@ -59,16 +56,13 @@ static void drawNetworkList()
     tft.setTextSize(2);
     tft.setCursor(20, y + 12);
 
-    // Truncate SSID if too long
     char ssid_disp[20];
     strncpy(ssid_disp, s_results[idx].ssid, 19);
     ssid_disp[19] = '\0';
     tft.print(ssid_disp);
 
-    // Signal bars
     drawSignalBars(SCREEN_WIDTH - 50, y + 10, s_results[idx].rssi);
 
-    // Lock icon for secured networks
     if (s_results[idx].authmode != 0)
     {
       tft.setTextSize(1);
@@ -79,7 +73,6 @@ static void drawNetworkList()
     y += LIST_ITEM_H;
   }
 
-  // Scroll indicators
   if (s_scroll_offset > 0)
   {
     tft.fillTriangle(240, LIST_START_Y - 10, 230, LIST_START_Y - 2,
@@ -98,7 +91,6 @@ void drawWifiScanScreen()
 
   tft.fillScreen(COLOR_DARK_BG);
 
-  // Header
   tft.fillRect(0, 0, SCREEN_WIDTH, HEADER_H, TFT_BLACK);
   tft.fillRect(10, 10, BACK_BTN_SIZE, BACK_BTN_SIZE, TFT_DARKGREY);
   tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
@@ -111,7 +103,6 @@ void drawWifiScanScreen()
   tft.setCursor(70, 18);
   tft.print("WiFi Networks");
 
-  // Start scan
   s_scanning = true;
   s_result_count = 0;
   s_scroll_offset = 0;
@@ -125,14 +116,12 @@ void drawWifiScanScreen()
 
 bool handleWifiScanScreenTouch()
 {
-  // Update scan results if done
   if (s_scanning && wifi_manager_scan_done())
   {
     s_scanning = false;
     s_result_count = wifi_manager_get_scan_results(s_results, WIFI_MAX_SCAN_RESULTS);
     ESP_LOGI(TAG, "Scan found %d networks", s_result_count);
 
-    // Redraw list area
     tft.fillRect(0, LIST_START_Y - 15, SCREEN_WIDTH, SCREEN_HEIGHT - LIST_START_Y + 15, COLOR_DARK_BG);
     if (s_result_count > 0)
       drawNetworkList();
@@ -145,7 +134,6 @@ bool handleWifiScanScreenTouch()
     }
   }
 
-  // Back button
   if (checkButtonTouch(10, 10, BACK_BTN_SIZE, BACK_BTN_SIZE))
   {
     ESP_LOGI(TAG, "Back pressed");
@@ -153,7 +141,6 @@ bool handleWifiScanScreenTouch()
     return true;
   }
 
-  // Scroll up
   if (s_scroll_offset > 0 && checkButtonTouch(200, LIST_START_Y - 20, 80, 20))
   {
     s_scroll_offset--;
@@ -161,7 +148,6 @@ bool handleWifiScanScreenTouch()
     drawNetworkList();
   }
 
-  // Scroll down
   if (s_scroll_offset + MAX_VISIBLE_ITEMS < s_result_count)
   {
     int by = LIST_START_Y + MAX_VISIBLE_ITEMS * LIST_ITEM_H;
@@ -173,7 +159,6 @@ bool handleWifiScanScreenTouch()
     }
   }
 
-  // Network selection
   if (!s_scanning && s_result_count > 0)
   {
     for (int i = 0; i < MAX_VISIBLE_ITEMS && (i + s_scroll_offset) < s_result_count; i++)

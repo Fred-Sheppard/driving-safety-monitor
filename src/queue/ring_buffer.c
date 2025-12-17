@@ -13,9 +13,9 @@ struct ring_buffer
     uint8_t *buffer;
     size_t capacity;
     size_t item_size;
-    size_t head;  // Next write position
-    size_t tail;  // Next read position
-    size_t count; // Current number of items
+    size_t head;
+    size_t tail;
+    size_t count;
     SemaphoreHandle_t mutex;
 };
 
@@ -80,7 +80,6 @@ bool ring_buffer_push(ring_buffer_t *rb, const void *item, bool *was_full)
         return false;
     }
 
-    // Overwrite oldest if full
     bool full = rb->count >= rb->capacity;
     if (full)
     {
@@ -200,7 +199,6 @@ bool ring_buffer_pop_match(ring_buffer_t *rb, ring_buffer_match_fn match,
         return false;
     }
 
-    // Search for matching item
     for (size_t i = 0; i < rb->count; i++)
     {
         size_t idx = (rb->tail + i) % rb->capacity;
@@ -210,7 +208,6 @@ bool ring_buffer_pop_match(ring_buffer_t *rb, ring_buffer_match_fn match,
         {
             memcpy(item, curr, rb->item_size);
 
-            // Shift remaining items to fill gap
             for (size_t j = i; j < rb->count - 1; j++)
             {
                 size_t curr_idx = (rb->tail + j) % rb->capacity;

@@ -9,7 +9,6 @@ class LGFX_ILI9488 : public lgfx::LGFX_Device {
 
 public:
     LGFX_ILI9488(void) {
-        // SPI bus configuration
         auto bus_cfg = _bus.config();
         bus_cfg.spi_host    = SPI2_HOST;
         bus_cfg.spi_mode    = 0;
@@ -22,7 +21,6 @@ public:
         _bus.config(bus_cfg);
         _panel.setBus(&_bus);
 
-        // Panel configuration
         auto panel_cfg = _panel.config();
         panel_cfg.pin_cs    = 15;
         panel_cfg.pin_rst   = 4;
@@ -38,7 +36,6 @@ public:
 
         setPanel(&_panel);
 
-        // Touch configuration (XPT2046)
         auto touch_cfg = _touch.config();
         touch_cfg.spi_host = SPI2_HOST;
         touch_cfg.freq     = 1000000;
@@ -48,7 +45,6 @@ public:
         _touch.config(touch_cfg);
         _panel.setTouch(&_touch);
 
-        // Backlight setup
         gpio_config_t io_conf = {};
         io_conf.pin_bit_mask = (1ULL << 32);
         io_conf.mode = GPIO_MODE_OUTPUT;

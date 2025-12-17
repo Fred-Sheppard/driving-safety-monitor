@@ -8,7 +8,6 @@ static const char *TAG = "bidir_queue";
 
 static ring_buffer_t *queue = NULL;
 
-// Match function for direction-based filtering
 static bool match_direction(const void *item, void *ctx)
 {
     const bidir_message_t *msg = item;

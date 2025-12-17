@@ -50,7 +50,6 @@ const char *serialize_batch(const sensor_batch_t *batch) {
     char *end = s_batch_buffer + BATCH_BUFFER_SIZE;
     int written;
 
-    // Write header with device ID
     written = snprintf(ptr, end - ptr,
         "{\"dev\":\"%s\",\"ts\":%lu,\"rate\":%u,\"n\":%u,\"d\":[",
         g_device_id,
@@ -64,7 +63,6 @@ const char *serialize_batch(const sensor_batch_t *batch) {
     }
     ptr += written;
 
-    // Write samples as [x,y,z] arrays
     for (uint16_t i = 0; i < batch->sample_count; i++) {
         written = snprintf(ptr, end - ptr,
             "%s[%.4f,%.4f,%.4f]",
@@ -80,7 +78,6 @@ const char *serialize_batch(const sensor_batch_t *batch) {
         ptr += written;
     }
 
-    // Close JSON
     written = snprintf(ptr, end - ptr, "]}");
     if (written < 0 || ptr + written >= end) {
         ESP_LOGE(TAG, "Batch close overflow");

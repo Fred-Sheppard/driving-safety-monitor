@@ -22,10 +22,8 @@ static void drawGrass()
 
 static void drawSettingsIcon(int cx, int cy, int r)
 {
-  // Gear icon: circle with notches
   tft.fillCircle(cx, cy, r - 4, TFT_WHITE);
   tft.fillCircle(cx, cy, r - 8, TFT_BLACK);
-  // Draw gear teeth
   for (int i = 0; i < 8; i++)
   {
     float angle = i * 3.14159f / 4.0f;
@@ -43,7 +41,6 @@ static void drawHeader()
   tft.setCursor(10, 20);
   tft.println("GPS VIEW");
 
-  // Settings gear icon (top right)
   drawSettingsIcon(SETTINGS_BTN_X + SETTINGS_BTN_SIZE / 2,
                    SETTINGS_BTN_Y + SETTINGS_BTN_SIZE / 2, 18);
 }

@@ -8,7 +8,6 @@
 
 static const char *TAG = "screen_keyboard";
 
-// Compact layout for 480x320 screen
 #define KEY_W 40
 #define KEY_H 38
 #define KEY_GAP 2
@@ -18,13 +17,11 @@ static const char *TAG = "screen_keyboard";
 #define INPUT_H 32
 #define DEBOUNCE_MS 180
 
-// Keyboard state
 static char s_input[65] = {0};
 static int s_input_len = 0;
 static bool s_shift = false;
 static unsigned long s_lastTouch = 0;
 
-// Keyboard layout
 static const char *ROWS[] = {"1234567890", "qwertyuiop", "asdfghjkl", "zxcvbnm"};
 static const char *ROWS_SHIFT[] = {"!@#$%^&*()", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"};
 static const int ROW_LENS[] = {10, 10, 9, 7};
@@ -90,7 +87,6 @@ static void drawKeyboard()
 {
   const char **rows = s_shift ? ROWS_SHIFT : ROWS;
 
-  // Draw rows 0-2 (numbers, qwerty, asdf)
   for (int r = 0; r < 3; r++)
   {
     int x = getRowX(r);
@@ -102,11 +98,9 @@ static void drawKeyboard()
     }
   }
 
-  // Row 2: DEL after 'l'
   int delX = getRowX(2) + 9 * KEY_STEP;
   drawTextKey(delX, getRowY(2), "DEL", 42, TFT_RED);
 
-  // Row 3: SHIFT + zxcvbnm + SPACE + OK
   int y3 = getRowY(3);
   drawTextKey(8, y3, "SHF", 42, s_shift ? TFT_BLUE : TFT_DARKGREY);
 
@@ -131,7 +125,6 @@ void drawKeyboardScreen()
 
   tft.fillScreen(COLOR_DARK_BG);
 
-  // Header
   tft.fillRect(0, 0, SCREEN_WIDTH, 45, TFT_BLACK);
   tft.fillRect(8, 8, 32, 30, TFT_DARKGREY);
   tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
@@ -175,7 +168,6 @@ bool handleKeyboardScreenTouch()
 
   const char **rows = s_shift ? ROWS_SHIFT : ROWS;
 
-  // Rows 0-2 (numbers, qwerty, asdf)
   for (int r = 0; r < 3; r++)
   {
     int x = getRowX(r);
@@ -191,7 +183,6 @@ bool handleKeyboardScreenTouch()
     }
   }
 
-  // DEL key
   int delX = getRowX(2) + 9 * KEY_STEP;
   if (checkButtonTouch(delX, getRowY(2), 42, KEY_H))
   {
@@ -203,10 +194,8 @@ bool handleKeyboardScreenTouch()
     return false;
   }
 
-  // Row 3 special keys
   int y3 = getRowY(3);
 
-  // SHIFT
   if (checkButtonTouch(8, y3, 42, KEY_H))
   {
     s_shift = !s_shift;
@@ -214,7 +203,6 @@ bool handleKeyboardScreenTouch()
     return false;
   }
 
-  // zxcvbnm keys
   int zx = 54;
   for (int i = 0; i < 7; i++)
   {
@@ -226,14 +214,12 @@ bool handleKeyboardScreenTouch()
     zx += KEY_STEP;
   }
 
-  // SPACE
   if (checkButtonTouch(zx + 4, y3, 56, KEY_H))
   {
     typeChar(' ');
     return false;
   }
 
-  // OK
   if (checkButtonTouch(zx + 64, y3, 48, KEY_H))
   {
     ESP_LOGI(TAG, "Connecting (pwd len=%d)", s_input_len);

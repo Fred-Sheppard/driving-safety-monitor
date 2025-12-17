@@ -5,7 +5,6 @@
 #include "detector.h"
 #include "message_types.h"
 
-// Detector configuration structure
 typedef struct {
     const char *name;
     float default_threshold;
@@ -17,7 +16,6 @@ typedef struct {
     void (*on_trigger)(void);
 } detector_config_t;
 
-// Detector table (defined in detector_defs.c)
 extern detector_config_t detectors[DETECTOR_COUNT];
 
 #endif // DETECTOR_DEFS_H

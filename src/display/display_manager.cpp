@@ -7,7 +7,6 @@
 
 static const char *TAG = "display";
 
-// Screen definition
 typedef struct
 {
   void (*draw)(void);
@@ -35,7 +34,6 @@ static const screen_t screens[] = {
     [STATE_TOUCH_TEST] = {drawTouchTest, 0},
 };
 
-// State
 AppState currentState = STATE_MAIN;
 AppState previousState = STATE_MAIN;
 int countdownValue = INITIAL_COUNTDOWN_VALUE;
@@ -44,7 +42,6 @@ SemaphoreHandle_t stateMutex = NULL;
 static unsigned long lastCountdownTime = 0;
 static unsigned long stateStartTime = 0;
 
-// Thread-safe state helpers
 static void set_state(AppState state)
 {
   xSemaphoreTake(stateMutex, portMAX_DELAY);
@@ -81,7 +78,6 @@ void display_init()
 
 static void handleCountdownState(unsigned long currentTime)
 {
-  // Check for cancel button press
   if (checkCancelButton())
   {
     ESP_LOGI(TAG, "Warning cancelled by user");
