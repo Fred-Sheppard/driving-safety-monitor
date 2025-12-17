@@ -341,6 +341,37 @@
             );
         }
 
+        // Debounce alerts: group same event types within a time window
+        const ALERT_DEBOUNCE_MS = 5000; // 5 second window
+
+        function dedupeAlerts(alerts) {
+            if (!alerts || alerts.length === 0) return [];
+
+            const result = [];
+            let prev = null;
+
+            for (const alert of alerts) {
+                const eventKey = `${alert.type}-${alert.event || ''}`;
+                const timestamp = new Date(alert.received_at).getTime();
+
+                if (prev && prev.key === eventKey) {
+                    const timeDiff = prev.timestamp - timestamp; // alerts are sorted desc
+                    if (timeDiff < ALERT_DEBOUNCE_MS) {
+                        // Same event within debounce window - increment count
+                        prev.count++;
+                        continue;
+                    }
+                }
+
+                // New distinct event
+                const newEntry = { ...alert, count: 1, key: eventKey, timestamp };
+                result.push(newEntry);
+                prev = newEntry;
+            }
+
+            return result;
+        }
+
         function App() {
             const [devices, setDevices] = useState([]);
             const [selectedDevice, setSelectedDevice] = useState(null);
@@ -375,7 +406,7 @@
                         fetch('/api/devices'),
                         fetch(`/api/stats${deviceParam}`),
                         fetch(`/api/alerts?limit=20${deviceParamAmp}`),
-                        fetch(`/api/readings/latest?limit=500${deviceParamAmp}`),
+                        fetch(`/api/readings/latest?limit=30000${deviceParamAmp}`),
                         fetch(`/api/alerts/history${deviceParam}`)
                     ]);
 
@@ -521,7 +552,7 @@
 
                     <div className="grid" style={{ gridTemplateColumns: '2fr 1fr' }}>
                         <div className="card">
-                            <h2>Accelerometer Data (Latest 500 samples)</h2>
+                            <h2>Accelerometer Data (Last 5 minutes)</h2>
                             <div className="chart-container">
                                 <canvas ref={chartRef}></canvas>
                             </div>
@@ -532,12 +563,13 @@
                                 {alerts.length === 0 ? (
                                     <p style={{ color: '#666', padding: '20px', textAlign: 'center' }}>No alerts yet</p>
                                 ) : (
-                                    alerts.map(alert => (
+                                    dedupeAlerts(alerts).map(alert => (
                                         <div key={alert.id} className="alert-item">
                                             <div>
                                                 <span className={`alert-badge ${alert.type}`}>
                                                     {alert.type === 'crash' ? 'CRASH' : alert.event?.replace('_', ' ').toUpperCase()}
                                                 </span>
+                                                {alert.count > 1 && <span style={{ marginLeft: 8, color: '#888', fontSize: '0.85em' }}>×{alert.count}</span>}
                                                 {alert.type === 'crash' && <span style={{ marginLeft: 10 }}>mag: {alert.accel_magnitude?.toFixed(2)}</span>}
                                                 {alert.type === 'warning' && <span style={{ marginLeft: 10 }}>y: {alert.accel_y?.toFixed(2)}</span>}
                                             </div>
