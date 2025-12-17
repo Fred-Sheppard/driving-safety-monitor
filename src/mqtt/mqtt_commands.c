@@ -1,6 +1,7 @@
 #include "mqtt_internal.h"
 #include "config.h"
-#include "queue/bidir_queue.h"
+#include "message_types.h"
+#include "queue/ring_buffer.h"
 
 #include "mqtt_client.h"
 #include "esp_log.h"
@@ -33,7 +34,7 @@ void mqtt_publish_status(const threshold_status_t *status)
 
         if (msg_id >= 0)
         {
-            ESP_LOGI(TAG, "Status: crash=%.1f braking=%.1f accel=%.1f cornering=%.1f",
+            ESP_LOGI(TAG, "Thresholds: crash=%.1f braking=%.1f accel=%.1f cornering=%.1f",
                      status->crash, status->braking, status->accel, status->cornering);
         }
         else
@@ -46,12 +47,21 @@ void mqtt_publish_status(const threshold_status_t *status)
 
 static void handle_get_status(void)
 {
-    bidir_message_t msg = {
-        .direction = BIDIR_INBOUND,
-        .type = BIDIR_CMD_GET_STATUS
-    };
-    bidir_queue_push(&msg);
-    ESP_LOGI(TAG, "Status request queued");
+    mqtt_command_t cmd = {
+        .type = MQTT_CMD_GET_STATUS};
+    bool was_full = false;
+    if (ring_buffer_push(mqtt_command_queue, &cmd, &was_full))
+    {
+        if (was_full)
+        {
+            ESP_LOGW(TAG, "Command queue full, overwrote oldest command");
+        }
+        ESP_LOGI(TAG, "Status request queued");
+    }
+    else
+    {
+        ESP_LOGE(TAG, "Failed to queue status request");
+    }
 }
 
 static void handle_set_threshold(cJSON *root)
@@ -65,34 +75,37 @@ static void handle_set_threshold(cJSON *root)
         return;
     }
 
-    bidir_message_t msg = {
-        .direction = BIDIR_INBOUND,
-        .type = BIDIR_CMD_SET_THRESHOLD,
-        .data.set_threshold.value = (float)value_obj->valuedouble
-    };
+    mqtt_command_t cmd = {
+        .type = MQTT_CMD_SET_THRESHOLD,
+        .data.set_threshold.value = (float)value_obj->valuedouble};
 
     const char *type = type_obj->valuestring;
     if (strcmp(type, "crash") == 0)
-        msg.data.set_threshold.threshold = THRESHOLD_CRASH;
+        cmd.data.set_threshold.threshold = THRESHOLD_CRASH;
     else if (strcmp(type, "braking") == 0)
-        msg.data.set_threshold.threshold = THRESHOLD_BRAKING;
+        cmd.data.set_threshold.threshold = THRESHOLD_BRAKING;
     else if (strcmp(type, "accel") == 0)
-        msg.data.set_threshold.threshold = THRESHOLD_ACCEL;
+        cmd.data.set_threshold.threshold = THRESHOLD_ACCEL;
     else if (strcmp(type, "cornering") == 0)
-        msg.data.set_threshold.threshold = THRESHOLD_CORNERING;
+        cmd.data.set_threshold.threshold = THRESHOLD_CORNERING;
     else
     {
         ESP_LOGW(TAG, "Unknown threshold type: %s", type);
         return;
     }
 
-    if (bidir_queue_push(&msg))
+    bool was_full = false;
+    if (ring_buffer_push(mqtt_command_queue, &cmd, &was_full))
     {
-        ESP_LOGI(TAG, "Set %s threshold to %.1f", type, msg.data.set_threshold.value);
+        if (was_full)
+        {
+            ESP_LOGW(TAG, "Command queue full, overwrote oldest command");
+        }
+        ESP_LOGI(TAG, "Set %s threshold to %.1f", type, cmd.data.set_threshold.value);
     }
     else
     {
-        ESP_LOGW(TAG, "Bidir queue full");
+        ESP_LOGE(TAG, "Failed to queue command");
     }
 }
 

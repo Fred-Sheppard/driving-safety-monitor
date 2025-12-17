@@ -68,15 +68,10 @@ typedef enum {
 } threshold_type_t;
 
 typedef enum {
-    BIDIR_INBOUND,   // Command from dashboard
-    BIDIR_OUTBOUND   // Response/status to dashboard
-} bidir_direction_t;
-
-typedef enum {
-    BIDIR_CMD_SET_THRESHOLD,  // Inbound: set a threshold
-    BIDIR_CMD_GET_STATUS,     // Inbound: request current status
-    BIDIR_RESP_STATUS         // Outbound: current thresholds
-} bidir_msg_type_t;
+    MQTT_CMD_SET_THRESHOLD,  // Set a threshold
+    MQTT_CMD_GET_STATUS,     // Request current status
+    MQTT_RESP_STATUS          // Current thresholds response
+} mqtt_command_type_t;
 
 typedef struct {
     float crash;
@@ -86,8 +81,7 @@ typedef struct {
 } threshold_status_t;
 
 typedef struct {
-    bidir_direction_t direction;
-    bidir_msg_type_t type;
+    mqtt_command_type_t type;
     union {
         struct {
             threshold_type_t threshold;
@@ -95,10 +89,12 @@ typedef struct {
         } set_threshold;
         threshold_status_t status;
     } data;
-} bidir_message_t;
+} mqtt_command_t;
 
 extern ring_buffer_t *sensor_rb;
 extern ring_buffer_t *batch_rb;
 extern ring_buffer_t *mqtt_rb;
+extern ring_buffer_t *mqtt_command_queue;  // Commands from MQTT to processing
+extern ring_buffer_t *mqtt_response_queue; // Responses from processing to MQTT
 
 #endif // MESSAGE_TYPES_H
