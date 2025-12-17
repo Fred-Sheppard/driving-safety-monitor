@@ -14,7 +14,6 @@ static const char *TAG = "trace";
 static char stats_buffer[STATS_BUFFER_SIZE];
 #endif
 
-// Track previous task for switch logging
 static const char *previous_task_name = NULL;
 
 esp_err_t trace_init(void)
@@ -61,7 +60,6 @@ void trace_print_stats(void)
 
     ESP_LOGI(TAG, "========================================");
 
-    // Also print task states
     ESP_LOGI(TAG, "========== Task States ==========");
     vTaskList(stats_buffer);
     printf("Task            State   Prio    Stack   Num\n");

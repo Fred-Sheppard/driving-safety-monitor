@@ -208,7 +208,6 @@ bool ring_buffer_pop_match(ring_buffer_t *rb, ring_buffer_match_fn match,
         {
             memcpy(item, curr, rb->item_size);
 
-            // Shift to fill gap
             for (size_t j = i; j < rb->count - 1; j++)
             {
                 size_t curr_idx = (rb->tail + j) % rb->capacity;

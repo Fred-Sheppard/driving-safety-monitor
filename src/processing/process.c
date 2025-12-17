@@ -131,7 +131,6 @@ static void handle_bidir_command(const bidir_message_t *msg)
         ESP_LOGI(TAG, "Set %s threshold to %.1f G",
                  detector_get_name(detector), msg->data.set_threshold.value);
 
-        // Send updated status back to dashboard
         send_status_response();
         break;
     }

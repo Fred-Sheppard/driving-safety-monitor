@@ -11,7 +11,6 @@
 
 static const char *TAG = "wifi_manager";
 
-// Event bits for WiFi status
 #define WIFI_CONNECTED_BIT    BIT0
 #define WIFI_FAIL_BIT         BIT1
 
@@ -28,7 +27,6 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         wifi_event_sta_disconnected_t *disconn = (wifi_event_sta_disconnected_t *)event_data;
 
-        // Clear connected bit so mqtt_manager knows we're offline
         xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
 
         if (s_manual_disconnect) {

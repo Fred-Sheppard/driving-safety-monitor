@@ -24,7 +24,6 @@ void drawTouchTestScreen()
   tft.fillRect(0, 300, 20, 20, TFT_BLUE);     // Bottom-left
   tft.fillRect(460, 300, 20, 20, TFT_YELLOW); // Bottom-right
 
-  // Labels
   tft.setTextSize(1);
   tft.setTextColor(TFT_BLACK, TFT_WHITE);
   tft.setCursor(25, 5);
@@ -56,7 +55,6 @@ bool handleTouchTestScreenTouch()
 
     ESP_LOGI(TAG, "Touch at raw x=%ld y=%ld", x, y);
 
-    // Back button (top-left red square)
     if (x < 50 && y < 50)
     {
       ESP_LOGI(TAG, "Back pressed");

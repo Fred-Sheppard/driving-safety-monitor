@@ -17,10 +17,8 @@ bool handleWifiScanScreenTouch();
 bool handleKeyboardScreenTouch();
 bool handleTouchTestScreenTouch();
 
-// Keyboard input result
 const char *getKeyboardInput();
 
-// Selected WiFi SSID for keyboard screen
 void setSelectedSsid(const char *ssid);
 const char *getSelectedSsid();
 

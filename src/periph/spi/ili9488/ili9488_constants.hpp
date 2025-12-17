@@ -7,7 +7,6 @@
 #define SCREEN_WIDTH  480
 #define SCREEN_HEIGHT 320
 
-// Common UI dimensions
 #define HEADER_HEIGHT 50
 #define FOOTER_HEIGHT 50
 #define DIALOG_BOX_WIDTH 400
@@ -21,17 +20,14 @@
 #define BUTTON_HEIGHT 60
 #define BUTTON_RADIUS 8
 
-// Timeouts (ms)
 #define CRASH_SCREEN_TIMEOUT_MS    5000
 #define WARNING_SCREEN_TIMEOUT_MS  10000
 #define COUNTDOWN_INTERVAL_MS      1000
 #define DISPLAY_TASK_DELAY_MS      50
 #define INITIAL_COUNTDOWN_VALUE    10
 
-// Color helper macro (RGB565)
 #define RGB565(r, g, b) ((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3))
 
-// Theme colors
 #define COLOR_GRASS_GREEN   RGB565(76, 175, 80)
 #define COLOR_DARK_GREEN    RGB565(46, 125, 50)
 #define COLOR_TREE_GREEN    RGB565(27, 94, 32)

@@ -24,7 +24,6 @@ void app_main(void)
 {
     ESP_LOGI(TAG, "Driving Safety Monitor starting...");
 
-    // Initialize watchdog early
     ESP_ERROR_CHECK(watchdog_init(WATCHDOG_TIMEOUT_SECONDS));
 
     esp_err_t ret = nvs_flash_init();

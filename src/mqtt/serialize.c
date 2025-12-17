@@ -78,7 +78,6 @@ const char *serialize_batch(const sensor_batch_t *batch) {
         ptr += written;
     }
 
-    // Close JSON
     written = snprintf(ptr, end - ptr, "]}");
     if (written < 0 || ptr + written >= end) {
         ESP_LOGE(TAG, "Batch close overflow");
