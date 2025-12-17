@@ -7,13 +7,14 @@
 
 typedef struct {
     const char *name;
+    const char *display_name;
     float default_threshold;
     float threshold;
     bool is_crash;
     warning_event_t warning_event;
     bool (*check)(const sensor_reading_t *data, float threshold);
     float (*get_value)(const sensor_reading_t *data);
-    void (*on_trigger)(void);
+    void (*on_trigger)(const char *message);
 } detector_config_t;
 
 extern detector_config_t detectors[DETECTOR_COUNT];

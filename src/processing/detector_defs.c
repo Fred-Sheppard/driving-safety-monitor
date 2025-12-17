@@ -54,6 +54,7 @@ static float get_cornering_value(const sensor_reading_t *data)
 detector_config_t detectors[DETECTOR_COUNT] = {
     [DETECTOR_CRASH] = {
         .name = "crash",
+        .display_name = "Crash Detected",
         .default_threshold = DEFAULT_CRASH_THRESHOLD_G,
         .is_crash = true,
         .check = check_crash,
@@ -62,6 +63,7 @@ detector_config_t detectors[DETECTOR_COUNT] = {
     },
     [DETECTOR_HARSH_BRAKING] = {
         .name = "harsh_braking",
+        .display_name = "Harsh Braking",
         .default_threshold = DEFAULT_HARSH_BRAKING_THRESHOLD_G,
         .is_crash = false,
         .warning_event = WARNING_HARSH_BRAKING,
@@ -71,6 +73,7 @@ detector_config_t detectors[DETECTOR_COUNT] = {
     },
     [DETECTOR_HARSH_ACCEL] = {
         .name = "harsh_accel",
+        .display_name = "Harsh Acceleration",
         .default_threshold = DEFAULT_HARSH_ACCEL_THRESHOLD_G,
         .is_crash = false,
         .warning_event = WARNING_HARSH_ACCEL,
@@ -80,6 +83,7 @@ detector_config_t detectors[DETECTOR_COUNT] = {
     },
     [DETECTOR_HARSH_CORNERING] = {
         .name = "harsh_cornering",
+        .display_name = "Sharp Turn",
         .default_threshold = DEFAULT_HARSH_CORNERING_THRESHOLD_G,
         .is_crash = false,
         .warning_event = WARNING_HARSH_CORNERING,

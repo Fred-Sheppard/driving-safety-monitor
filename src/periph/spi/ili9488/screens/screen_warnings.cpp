@@ -78,9 +78,9 @@ void drawCrashScreen()
   tft.println("Recording incident data...");
 }
 
-void drawCautionScreen()
+void drawCautionScreen(const char *text)
 {
-  ESP_LOGI(TAG, "Drawing caution screen");
+  ESP_LOGI(TAG, "Drawing caution screen: %s", text ? text : "");
   tft.fillScreen(COLOR_GREY_BG);
 
   tft.fillRect(0, 0, SCREEN_WIDTH, COLOR_BANNER_HEIGHT, TFT_ORANGE);
@@ -98,9 +98,7 @@ void drawCautionScreen()
 
   tft.setTextSize(2);
   tft.setCursor(160, 70);
-  tft.println("Vehicle detected in");
-  tft.setCursor(160, 100);
-  tft.println("blind spot");
+  tft.println(text ? text : "");
 
   int btnWidth = 250;
   int btnX = (SCREEN_WIDTH - btnWidth) / 2;

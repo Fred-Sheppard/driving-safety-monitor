@@ -85,7 +85,7 @@ static void handle_detection(detector_config_t *det, const sensor_reading_t *dat
     }
 
     if (det->on_trigger) {
-        det->on_trigger();
+        det->on_trigger(det->display_name);
     }
 }
 

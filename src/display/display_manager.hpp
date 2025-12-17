@@ -30,8 +30,8 @@ extern "C"
   void display_init();
   void displayTask(void *pvParameters);
 
-  void triggerWarningCountdown(void);
-  void triggerNormalWarning(void);
+  void triggerWarningCountdown(const char *message);
+  void triggerNormalWarning(const char *message);
   void triggerCrashScreen(void);
   void returnToMainScreen(void);
   void triggerSettingsScreen(void);

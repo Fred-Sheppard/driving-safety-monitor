@@ -4,7 +4,7 @@
 void drawMainScreen();
 void drawWarningCountdown(int countdown, bool fullRedraw);
 void drawCrashScreen();
-void drawCautionScreen();
+void drawCautionScreen(const char *text);
 void drawSettingsScreen();
 void drawWifiScanScreen();
 void drawKeyboardScreen();

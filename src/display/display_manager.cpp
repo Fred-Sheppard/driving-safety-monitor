@@ -6,6 +6,7 @@
 #include "watchdog/watchdog.h"
 
 static const char *TAG = "display";
+static const char *currentWarningMessage = NULL;
 
 typedef struct
 {
@@ -17,7 +18,7 @@ typedef struct
 static void drawMain() { drawMainScreen(); }
 static void drawCountdown() { drawWarningCountdown(countdownValue, true); }
 static void drawCrash() { drawCrashScreen(); }
-static void drawCaution() { drawCautionScreen(); }
+static void drawCaution() { drawCautionScreen(currentWarningMessage); }
 static void drawSettings() { drawSettingsScreen(); }
 static void drawWifiScan() { drawWifiScanScreen(); }
 static void drawKeyboard() { drawKeyboardScreen(); }
@@ -153,15 +154,20 @@ void displayTask(void *pvParameters)
   }
 }
 
-void triggerWarningCountdown()
+void triggerWarningCountdown(const char *message)
 {
+  currentWarningMessage = message;
   xSemaphoreTake(stateMutex, portMAX_DELAY);
   currentState = STATE_WARNING_COUNTDOWN;
   countdownValue = INITIAL_COUNTDOWN_VALUE;
   xSemaphoreGive(stateMutex);
 }
 
-void triggerNormalWarning() { set_state(STATE_NORMAL_WARNING); }
+void triggerNormalWarning(const char *message)
+{
+  currentWarningMessage = message;
+  set_state(STATE_NORMAL_WARNING);
+}
 void triggerCrashScreen() { set_state(STATE_CRASH); }
 void returnToMainScreen() { set_state(STATE_MAIN); }
 void triggerSettingsScreen() { set_state(STATE_SETTINGS); }
