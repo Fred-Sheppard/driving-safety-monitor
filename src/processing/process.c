@@ -10,11 +10,9 @@
 
 static const char *TAG = "process";
 
-// Batch accumulator
 static sensor_batch_t current_batch;
 static uint16_t batch_index = 0;
 
-// Forward declarations
 static void batch_telemetry_reading(const sensor_reading_t *data);
 static void handle_bidir_command(const bidir_message_t *msg);
 static void send_status_response(void);
@@ -25,12 +23,10 @@ void processing_task(void *pvParameters)
     sensor_reading_t sensor_data;
     bidir_message_t bidir_msg;
 
-    // Initialize batch
     current_batch.sample_rate_hz = IMU_SAMPLE_RATE_HZ;
     current_batch.sample_count = 0;
     batch_index = 0;
 
-    // Initialize detection modules
     detectors_init();
 
     ESP_LOGI(TAG, "Processing task started");
@@ -41,13 +37,11 @@ void processing_task(void *pvParameters)
         TRACE_TASK_RUN(TAG);
         watchdog_feed();
 
-        // Process all pending inbound commands (non-blocking)
         while (bidir_queue_pop(BIDIR_INBOUND, &bidir_msg))
         {
             handle_bidir_command(&bidir_msg);
         }
 
-        // Process sensor data (polling)
         if (ring_buffer_pop(sensor_rb, &sensor_data))
         {
             detectors_check_all(&sensor_data);
@@ -55,7 +49,6 @@ void processing_task(void *pvParameters)
         }
         else
         {
-            // No data available, yield to other tasks
             vTaskDelay(pdMS_TO_TICKS(10));
         }
     }
@@ -63,22 +56,18 @@ void processing_task(void *pvParameters)
 
 static void batch_telemetry_reading(const sensor_reading_t *data)
 {
-    // Start a new batch if this is the first sample
     if (batch_index == 0)
     {
         current_batch.batch_start_timestamp = xTaskGetTickCount();
     }
 
-    // Add sample to batch
     current_batch.samples[batch_index] = *data;
     batch_index++;
 
-    // Send batch when full
     if (batch_index >= LOG_BATCH_SIZE)
     {
         current_batch.sample_count = batch_index;
 
-        // Send to batch ring buffer
         bool was_full = false;
         if (!ring_buffer_push(batch_rb, &current_batch, &was_full))
         {
@@ -89,7 +78,6 @@ static void batch_telemetry_reading(const sensor_reading_t *data)
             ESP_LOGW(TAG, "batch_rb full, overwrote oldest batch");
         }
 
-        // Reset for next batch
         batch_index = 0;
     }
 }

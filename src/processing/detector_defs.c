@@ -5,7 +5,6 @@
 
 #define GRAVITY_G 9.81f
 
-// Check functions
 static float calculate_dynamic_magnitude(const sensor_reading_t *data)
 {
     float z_dynamic = data->z - GRAVITY_G;
@@ -32,7 +31,6 @@ static bool check_harsh_cornering(const sensor_reading_t *data, float threshold)
     return fabsf(data->x) >= threshold;
 }
 
-// Value functions (for logging)
 static float get_crash_value(const sensor_reading_t *data)
 {
     return calculate_dynamic_magnitude(data);
@@ -53,7 +51,6 @@ static float get_cornering_value(const sensor_reading_t *data)
     return data->x;
 }
 
-// Detector table
 detector_config_t detectors[DETECTOR_COUNT] = {
     [DETECTOR_CRASH] = {
         .name = "crash",

@@ -81,34 +81,23 @@ static void wifi_scan_and_print(void) {
 }
 
 esp_err_t wifi_manager_init(void) {
-    // Create event group for status signaling
     s_wifi_event_group = xEventGroupCreate();
     if (s_wifi_event_group == NULL) {
         ESP_LOGE(TAG, "Failed to create event group");
         return ESP_FAIL;
     }
 
-    // Initialize TCP/IP stack
     ESP_ERROR_CHECK(esp_netif_init());
-
-    // Create default event loop
     ESP_ERROR_CHECK(esp_event_loop_create_default());
-
-    // Create default WiFi station interface
     esp_netif_create_default_wifi_sta();
-
-    // Initialize WiFi with default config
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
-    // Set station mode and start WiFi for scanning
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    // Scan and print available networks
     wifi_scan_and_print();
 
-    // Register event handlers
     esp_event_handler_instance_t instance_any_id;
     esp_event_handler_instance_t instance_got_ip;
 
@@ -120,7 +109,6 @@ esp_err_t wifi_manager_init(void) {
         IP_EVENT, IP_EVENT_STA_GOT_IP,
         &wifi_event_handler, NULL, &instance_got_ip));
 
-    // Configure WiFi
     wifi_config_t wifi_config = {
         .sta = {
             .ssid = WIFI_SSID,
@@ -134,7 +122,7 @@ esp_err_t wifi_manager_init(void) {
 
     ESP_LOGI(TAG, "WiFi initialization complete, connecting to %s", WIFI_SSID);
 
-    // Trigger connection (WiFi already started for scanning)
+    // WiFi already started for scanning
     esp_wifi_connect();
 
     return ESP_OK;
@@ -170,7 +158,7 @@ bool wifi_manager_is_connected(void) {
 esp_err_t wifi_manager_start_scan(void) {
     s_scan_done = false;
 
-    // Stop any ongoing scan and disconnect to allow scanning
+    // Disconnect to allow scanning
     esp_wifi_scan_stop();
     esp_wifi_disconnect();
 
