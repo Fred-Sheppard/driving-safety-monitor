@@ -83,7 +83,7 @@ void sensor_task(void *pvParameters)
 #endif
 
         bool was_full = false;
-        if (!ring_buffer_push(sensor_rb, &r, &was_full))
+        if (!ring_buffer_push_back(sensor_rb, &r, &was_full))
             ESP_LOGW(TAG, "sensor_rb: failed to push sensor reading");
         else if (was_full)
             ESP_LOGW(TAG, "sensor_rb full, overwrote oldest reading");

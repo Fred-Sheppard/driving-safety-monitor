@@ -50,7 +50,7 @@ static void handle_get_status(void)
     mqtt_command_t cmd = {
         .type = MQTT_CMD_GET_STATUS};
     bool was_full = false;
-    if (ring_buffer_push(mqtt_command_queue, &cmd, &was_full))
+    if (ring_buffer_push_back(mqtt_command_queue, &cmd, &was_full))
     {
         if (was_full)
         {
@@ -95,7 +95,7 @@ static void handle_set_threshold(cJSON *root)
     }
 
     bool was_full = false;
-    if (ring_buffer_push(mqtt_command_queue, &cmd, &was_full))
+    if (ring_buffer_push_back(mqtt_command_queue, &cmd, &was_full))
     {
         if (was_full)
         {
