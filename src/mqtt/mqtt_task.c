@@ -17,7 +17,7 @@ static const char *TAG = "mqtt_task";
 static void process_mqtt_responses(void)
 {
     mqtt_command_t response;
-    while (ring_buffer_pop(mqtt_response_queue, &response))
+    while (ring_buffer_pop_front(mqtt_response_queue, &response))
     {
         if (response.type == MQTT_RESP_STATUS)
         {
@@ -29,7 +29,7 @@ static void process_mqtt_responses(void)
 static void process_alerts(void)
 {
     mqtt_message_t alert_msg;
-    while (ring_buffer_pop(mqtt_rb, &alert_msg))
+    while (ring_buffer_pop_front(mqtt_rb, &alert_msg))
     {
         const char *json_payload = serialize_alert(&alert_msg);
         if (json_payload == NULL)
@@ -56,7 +56,7 @@ static void process_alerts(void)
 static void process_telemetry(void)
 {
     sensor_batch_t batch;
-    if (ring_buffer_pop(batch_rb, &batch))
+    if (ring_buffer_pop_front(batch_rb, &batch))
     {
         const char *json_payload = serialize_batch(&batch);
         if (json_payload == NULL)
@@ -82,10 +82,9 @@ static void process_telemetry(void)
 static void request_initial_status(void)
 {
     mqtt_command_t status_req = {
-        .type = MQTT_CMD_GET_STATUS
-    };
+        .type = MQTT_CMD_GET_STATUS};
     bool was_full = false;
-    if (ring_buffer_push(mqtt_command_queue, &status_req, &was_full))
+    if (ring_buffer_push_back(mqtt_command_queue, &status_req, &was_full))
     {
         if (was_full)
         {

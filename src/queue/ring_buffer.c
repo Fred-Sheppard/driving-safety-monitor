@@ -70,7 +70,7 @@ static inline void *item_ptr(ring_buffer_t *rb, size_t index)
     return rb->buffer + (index * rb->item_size);
 }
 
-bool ring_buffer_push(ring_buffer_t *rb, const void *item, bool *was_full)
+bool ring_buffer_push_back(ring_buffer_t *rb, const void *item, bool *was_full)
 {
     if (!rb || !item)
         return false;
@@ -99,7 +99,47 @@ bool ring_buffer_push(ring_buffer_t *rb, const void *item, bool *was_full)
     return true;
 }
 
-bool ring_buffer_pop(ring_buffer_t *rb, void *item)
+bool ring_buffer_push_front(ring_buffer_t *rb, const void *item, bool *was_full)
+{
+    if (!rb || !item)
+        return false;
+
+    if (xSemaphoreTake(rb->mutex, pdMS_TO_TICKS(MUTEX_TIMEOUT_MS)) != pdTRUE)
+    {
+        return false;
+    }
+
+    bool full = rb->count >= rb->capacity;
+    if (was_full)
+        *was_full = full;
+
+    if (full)
+    {
+        // Buffer is full: remove oldest element (at tail) to make room
+        rb->tail = (rb->tail + 1) % rb->capacity;
+        ESP_LOGW(TAG, "Ring buffer full. Overwriting oldest element");
+    }
+
+    // Decrement tail to make room at front (wrapping around if needed)
+    rb->tail = (rb->tail + rb->capacity - 1) % rb->capacity;
+    memcpy(item_ptr(rb, rb->tail), item, rb->item_size);
+
+    if (!full)
+    {
+        rb->count++;
+    }
+
+    // If buffer was empty, update head to point past the new item
+    if (rb->count == 1)
+    {
+        rb->head = (rb->tail + 1) % rb->capacity;
+    }
+
+    xSemaphoreGive(rb->mutex);
+    return true;
+}
+
+bool ring_buffer_pop_front(ring_buffer_t *rb, void *item)
 {
     if (!rb || !item)
         return false;
@@ -117,6 +157,31 @@ bool ring_buffer_pop(ring_buffer_t *rb, void *item)
 
     memcpy(item, item_ptr(rb, rb->tail), rb->item_size);
     rb->tail = (rb->tail + 1) % rb->capacity;
+    rb->count--;
+
+    xSemaphoreGive(rb->mutex);
+    return true;
+}
+
+bool ring_buffer_pop_back(ring_buffer_t *rb, void *item)
+{
+    if (!rb || !item)
+        return false;
+
+    if (xSemaphoreTake(rb->mutex, pdMS_TO_TICKS(MUTEX_TIMEOUT_MS)) != pdTRUE)
+    {
+        return false;
+    }
+
+    if (rb->count == 0)
+    {
+        xSemaphoreGive(rb->mutex);
+        return false;
+    }
+
+    // head points to the next insertion point, so the last element is at head-1
+    rb->head = (rb->head + rb->capacity - 1) % rb->capacity;
+    memcpy(item, item_ptr(rb, rb->head), rb->item_size);
     rb->count--;
 
     xSemaphoreGive(rb->mutex);
@@ -186,90 +251,4 @@ void ring_buffer_clear(ring_buffer_t *rb)
     rb->tail = 0;
     rb->count = 0;
     xSemaphoreGive(rb->mutex);
-}
-
-bool ring_buffer_pop_match(ring_buffer_t *rb, ring_buffer_match_fn match,
-                           void *ctx, void *item)
-{
-    if (!rb || !match || !item)
-        return false;
-
-    if (xSemaphoreTake(rb->mutex, pdMS_TO_TICKS(MUTEX_TIMEOUT_MS)) != pdTRUE)
-    {
-        return false;
-    }
-
-    for (size_t i = 0; i < rb->count; i++)
-    {
-        size_t idx = (rb->tail + i) % rb->capacity;
-        void *curr = item_ptr(rb, idx);
-
-        if (match(curr, ctx))
-        {
-            memcpy(item, curr, rb->item_size);
-
-            for (size_t j = i; j < rb->count - 1; j++)
-            {
-                size_t curr_idx = (rb->tail + j) % rb->capacity;
-                size_t next_idx = (rb->tail + j + 1) % rb->capacity;
-                memcpy(item_ptr(rb, curr_idx), item_ptr(rb, next_idx), rb->item_size);
-            }
-
-            rb->count--;
-            rb->head = (rb->head + rb->capacity - 1) % rb->capacity;
-            xSemaphoreGive(rb->mutex);
-            return true;
-        }
-    }
-
-    xSemaphoreGive(rb->mutex);
-    return false;
-}
-
-bool ring_buffer_has_match(ring_buffer_t *rb, ring_buffer_match_fn match, void *ctx)
-{
-    if (!rb || !match)
-        return false;
-
-    if (xSemaphoreTake(rb->mutex, pdMS_TO_TICKS(MUTEX_TIMEOUT_MS)) != pdTRUE)
-    {
-        return false;
-    }
-
-    for (size_t i = 0; i < rb->count; i++)
-    {
-        size_t idx = (rb->tail + i) % rb->capacity;
-        if (match(item_ptr(rb, idx), ctx))
-        {
-            xSemaphoreGive(rb->mutex);
-            return true;
-        }
-    }
-
-    xSemaphoreGive(rb->mutex);
-    return false;
-}
-
-size_t ring_buffer_count_match(ring_buffer_t *rb, ring_buffer_match_fn match, void *ctx)
-{
-    if (!rb || !match)
-        return 0;
-
-    if (xSemaphoreTake(rb->mutex, pdMS_TO_TICKS(MUTEX_TIMEOUT_MS)) != pdTRUE)
-    {
-        return 0;
-    }
-
-    size_t count = 0;
-    for (size_t i = 0; i < rb->count; i++)
-    {
-        size_t idx = (rb->tail + i) % rb->capacity;
-        if (match(item_ptr(rb, idx), ctx))
-        {
-            count++;
-        }
-    }
-
-    xSemaphoreGive(rb->mutex);
-    return count;
 }

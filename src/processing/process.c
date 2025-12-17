@@ -36,12 +36,12 @@ void processing_task(void *pvParameters)
         TRACE_TASK_RUN(TAG);
         watchdog_feed();
 
-        while (ring_buffer_pop(mqtt_command_queue, &mqtt_cmd))
+        while (ring_buffer_pop_front(mqtt_command_queue, &mqtt_cmd))
         {
             handle_mqtt_command(&mqtt_cmd);
         }
 
-        if (ring_buffer_pop(sensor_rb, &sensor_data))
+        if (ring_buffer_pop_front(sensor_rb, &sensor_data))
         {
             detectors_check_all(&sensor_data);
             batch_telemetry_reading(&sensor_data);
@@ -68,7 +68,7 @@ static void batch_telemetry_reading(const sensor_reading_t *data)
         current_batch.sample_count = batch_index;
 
         bool was_full = false;
-        if (!ring_buffer_push(batch_rb, &current_batch, &was_full))
+        if (!ring_buffer_push_back(batch_rb, &current_batch, &was_full))
         {
             ESP_LOGW(TAG, "batch_rb: failed to push telemetry batch");
         }
@@ -92,7 +92,7 @@ static void send_status_response(void)
             .cornering = detector_get_threshold(DETECTOR_HARSH_CORNERING)}};
 
     bool was_full = false;
-    if (!ring_buffer_push(mqtt_response_queue, &response, &was_full))
+    if (!ring_buffer_push_back(mqtt_response_queue, &response, &was_full))
     {
         ESP_LOGW(TAG, "Failed to queue status response");
     }
