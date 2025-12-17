@@ -1,6 +1,5 @@
 #include "message_types.h"
 #include "queue/ring_buffer.h"
-#include "queue/bidir_queue.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -14,14 +13,14 @@ static sensor_batch_t current_batch;
 static uint16_t batch_index = 0;
 
 static void batch_telemetry_reading(const sensor_reading_t *data);
-static void handle_bidir_command(const bidir_message_t *msg);
+static void handle_mqtt_command(const mqtt_command_t *cmd);
 static void send_status_response(void);
 
 void processing_task(void *pvParameters)
 {
     (void)pvParameters;
     sensor_reading_t sensor_data;
-    bidir_message_t bidir_msg;
+    mqtt_command_t mqtt_cmd;
 
     current_batch.sample_rate_hz = IMU_SAMPLE_RATE_HZ;
     current_batch.sample_count = 0;
@@ -37,9 +36,9 @@ void processing_task(void *pvParameters)
         TRACE_TASK_RUN(TAG);
         watchdog_feed();
 
-        while (bidir_queue_pop(BIDIR_INBOUND, &bidir_msg))
+        while (ring_buffer_pop(mqtt_command_queue, &mqtt_cmd))
         {
-            handle_bidir_command(&bidir_msg);
+            handle_mqtt_command(&mqtt_cmd);
         }
 
         if (ring_buffer_pop(sensor_rb, &sensor_data))
@@ -84,31 +83,33 @@ static void batch_telemetry_reading(const sensor_reading_t *data)
 
 static void send_status_response(void)
 {
-    bidir_message_t response = {
-        .direction = BIDIR_OUTBOUND,
-        .type = BIDIR_RESP_STATUS,
+    mqtt_command_t response = {
+        .type = MQTT_RESP_STATUS,
         .data.status = {
             .crash = detector_get_threshold(DETECTOR_CRASH),
             .braking = detector_get_threshold(DETECTOR_HARSH_BRAKING),
             .accel = detector_get_threshold(DETECTOR_HARSH_ACCEL),
-            .cornering = detector_get_threshold(DETECTOR_HARSH_CORNERING)
-        }
-    };
+            .cornering = detector_get_threshold(DETECTOR_HARSH_CORNERING)}};
 
-    if (!bidir_queue_push(&response))
+    bool was_full = false;
+    if (!ring_buffer_push(mqtt_response_queue, &response, &was_full))
     {
         ESP_LOGW(TAG, "Failed to queue status response");
     }
+    else if (was_full)
+    {
+        ESP_LOGW(TAG, "Response queue full, overwrote oldest response");
+    }
 }
 
-static void handle_bidir_command(const bidir_message_t *msg)
+static void handle_mqtt_command(const mqtt_command_t *cmd)
 {
-    switch (msg->type)
+    switch (cmd->type)
     {
-    case BIDIR_CMD_SET_THRESHOLD:
+    case MQTT_CMD_SET_THRESHOLD:
     {
         detector_type_t detector;
-        switch (msg->data.set_threshold.threshold)
+        switch (cmd->data.set_threshold.threshold)
         {
         case THRESHOLD_CRASH:
             detector = DETECTOR_CRASH;
@@ -123,25 +124,25 @@ static void handle_bidir_command(const bidir_message_t *msg)
             detector = DETECTOR_HARSH_CORNERING;
             break;
         default:
-            ESP_LOGW(TAG, "Unknown threshold type: %d", msg->data.set_threshold.threshold);
+            ESP_LOGW(TAG, "Unknown threshold type: %d", cmd->data.set_threshold.threshold);
             return;
         }
 
-        detector_set_threshold(detector, msg->data.set_threshold.value);
+        detector_set_threshold(detector, cmd->data.set_threshold.value);
         ESP_LOGI(TAG, "Set %s threshold to %.1f G",
-                 detector_get_name(detector), msg->data.set_threshold.value);
+                 detector_get_name(detector), cmd->data.set_threshold.value);
 
         send_status_response();
         break;
     }
 
-    case BIDIR_CMD_GET_STATUS:
+    case MQTT_CMD_GET_STATUS:
         ESP_LOGI(TAG, "Status requested");
         send_status_response();
         break;
 
     default:
-        ESP_LOGW(TAG, "Unknown bidir command type: %d", msg->type);
+        ESP_LOGW(TAG, "Unknown MQTT command type: %d", cmd->type);
         break;
     }
 }

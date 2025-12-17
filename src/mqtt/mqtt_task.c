@@ -3,7 +3,6 @@
 #include "serialize.h"
 #include "config.h"
 #include "message_types.h"
-#include "queue/bidir_queue.h"
 #include "queue/ring_buffer.h"
 
 #include "freertos/FreeRTOS.h"
@@ -15,14 +14,14 @@
 
 static const char *TAG = "mqtt_task";
 
-static void process_bidir_outbound(void)
+static void process_mqtt_responses(void)
 {
-    bidir_message_t bidir_msg;
-    while (bidir_queue_pop(BIDIR_OUTBOUND, &bidir_msg))
+    mqtt_command_t response;
+    while (ring_buffer_pop(mqtt_response_queue, &response))
     {
-        if (bidir_msg.type == BIDIR_RESP_STATUS)
+        if (response.type == MQTT_RESP_STATUS)
         {
-            mqtt_publish_status(&bidir_msg.data.status);
+            mqtt_publish_status(&response.data.status);
         }
     }
 }
@@ -82,12 +81,22 @@ static void process_telemetry(void)
 
 static void request_initial_status(void)
 {
-    bidir_message_t status_req = {
-        .direction = BIDIR_INBOUND,
-        .type = BIDIR_CMD_GET_STATUS
+    mqtt_command_t status_req = {
+        .type = MQTT_CMD_GET_STATUS
     };
-    bidir_queue_push(&status_req);
-    ESP_LOGI(TAG, "Requested initial status");
+    bool was_full = false;
+    if (ring_buffer_push(mqtt_command_queue, &status_req, &was_full))
+    {
+        if (was_full)
+        {
+            ESP_LOGW(TAG, "Command queue full, overwrote oldest command");
+        }
+        ESP_LOGI(TAG, "Requested initial status");
+    }
+    else
+    {
+        ESP_LOGE(TAG, "Failed to queue status request");
+    }
 }
 
 void mqtt_task(void *pvParameters)
@@ -113,7 +122,7 @@ void mqtt_task(void *pvParameters)
             request_initial_status();
         }
 
-        process_bidir_outbound();
+        process_mqtt_responses();
         process_alerts();
         process_telemetry();
     }

@@ -11,7 +11,6 @@
 #include "sensor/sensor.h"
 #include "display/display_manager.hpp"
 #include "trace/trace.h"
-#include "queue/bidir_queue.h"
 #include "queue/ring_buffer.h"
 #include "watchdog/watchdog.h"
 
@@ -20,6 +19,8 @@ static const char *TAG = "main";
 ring_buffer_t *sensor_rb = NULL;
 ring_buffer_t *batch_rb = NULL;
 ring_buffer_t *mqtt_rb = NULL;
+ring_buffer_t *mqtt_command_queue = NULL;
+ring_buffer_t *mqtt_response_queue = NULL;
 void app_main(void)
 {
     ESP_LOGI(TAG, "Driving Safety Monitor starting...");
@@ -45,8 +46,10 @@ void app_main(void)
     mqtt_rb = ring_buffer_create(MQTT_QUEUE_SIZE, sizeof(mqtt_message_t));
     batch_rb = ring_buffer_create(BATCH_QUEUE_SIZE, sizeof(sensor_batch_t));
     sensor_rb = ring_buffer_create(SENSOR_QUEUE_SIZE, sizeof(sensor_reading_t));
-    bidir_queue_init();
-    if (mqtt_rb == NULL || batch_rb == NULL || sensor_rb == NULL)
+    mqtt_command_queue = ring_buffer_create(5, sizeof(mqtt_command_t));
+    mqtt_response_queue = ring_buffer_create(5, sizeof(mqtt_command_t));
+    if (mqtt_rb == NULL || batch_rb == NULL || sensor_rb == NULL || 
+        mqtt_command_queue == NULL || mqtt_response_queue == NULL)
     {
         ESP_LOGE(TAG, "Failed to create ring buffers");
         return;
