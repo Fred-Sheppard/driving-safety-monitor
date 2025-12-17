@@ -59,7 +59,6 @@ void app_main(void)
     ESP_ERROR_CHECK(mqtt_manager_start());
     ESP_LOGI(TAG, "MQTT client initialized (waiting for WiFi)");
 
-    // TODO: Log a warning if display is not connected
     display_init();
 
     // Large stack due to JSON serialization of batches
