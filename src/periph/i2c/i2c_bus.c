@@ -7,16 +7,6 @@ static const char *TAG = "i2c_bus";
 esp_err_t i2c_bus_init(void) {
     esp_err_t ret;
 
-    ret = i2c_driver_install(I2C_MASTER_NUM, I2C_MODE_MASTER, 0, 0, 0);
-    if (ret == ESP_ERR_INVALID_STATE) {
-        ESP_LOGI(TAG, "I2C already initialized");
-        return ESP_OK;
-    }
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "I2C driver install failed: %s", esp_err_to_name(ret));
-        return ret;
-    }
-
     i2c_config_t conf = {
         .mode = I2C_MODE_MASTER,
         .sda_io_num = I2C_MASTER_SDA,
@@ -30,6 +20,16 @@ esp_err_t i2c_bus_init(void) {
     ret = i2c_param_config(I2C_MASTER_NUM, &conf);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "I2C param config failed: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    ret = i2c_driver_install(I2C_MASTER_NUM, I2C_MODE_MASTER, 0, 0, 0);
+    if (ret == ESP_ERR_INVALID_STATE) {
+        ESP_LOGI(TAG, "I2C already initialized");
+        return ESP_OK;
+    }
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "I2C driver install failed: %s", esp_err_to_name(ret));
         return ret;
     }
 
