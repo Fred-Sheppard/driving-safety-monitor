@@ -1,29 +1,39 @@
+Macro topics
+Fred: Tracing, ring buffer
+Josh:  Tasks, MQTT
+Niall: State Machines, Lookup Tables, Serial Protocols (i2c and SPI)
+Sub topics
 TODO: Add line numbers to each
-- [x] Statistics
-- [x] Tasks
-- [x] Scheduling
-- [x] Pre-emptive vs cooperative scheduling
-- [x] Task starvation
-- [x] Priority inversion (say we had to tasks writing to the screen)
+- [x] Statistics src/trace/trace.c:55
+- [x] Tasks src/main.c:67
+- [x] Scheduling T
+- [x] Pre-emptive vs cooperative scheduling T
+- [x] Task starvation T
+- [x] Priority inversion T
 - [T] SMP, AMP and multicore (get some screenshots)
 - [T] Core affinity (We don't set any, so any core could be used for any task)
-- [x] Interrupts
-- [T] Timers
+- [ ] Interrupts T
+- [T] Timers 
 - [ ] Notifications
-- [x] State machines
-- [x] Lookup tables
-- [x] Buffers and pools
-- [x] Structs & unions
-- [x] Watchdogs
-- [x] Communication protocols - know what we use
+- [x] State machines // Niall src/display/display_manager.cpp:38
+- [x] Lookup tables // Niall src/display/display_manager.cpp:27
+- [x] Buffers and pools src/main.c:46
+- [x] Structs & unions src/message_types.h:42
+- [x] Watchdogs src/watchdog/watchdog.c:9
+- [x] Serial protocols - know what we use // Niall src/periph/
+- [x] Wireless protocols - know what we use // Josh 
+src/wifi/wifi_manager.c:1
+src/mqtt/mqtt_manager.c:20
 - [ ] Analog data (not used for us?)
-- [x] Atomics
-- [x] Mutexes
-- [x] Semaphores
+- [x] Atomics src/queue/ring_buffer.c:73
+- [x] Mutexes src/queue/ring_buffer.c:73
+- [x] Semaphores src/queue/ring_buffer.c:73
 - [T] Spinlocks
 - [ ] Re-entrant vs thread safe
-- [x] WiFi
+- [x] WiFi src/wifi/wifi_manager.c:1
 - [T] Control algorithms (Like what I was talking about with the autopilot, not really relevant to us)
-- [T] Power usage
-- [x] Bidirectional queue
-- [x] Ring buffer
+- [T] Power usage (screenshot)
+- [x] Bidirectional queue src/queue/ring_buffer.h:15
+- [x] Ring buffer src/queue/ring_buffer.h:15
+
+
