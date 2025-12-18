@@ -1,3 +1,4 @@
+#include "serialize.h"
 #include "mqtt_internal.h"
 #include "config.h"
 #include "message_types.h"
@@ -5,51 +6,62 @@
 
 #include "mqtt_client.h"
 #include "esp_log.h"
-#include "cJSON.h"
+
 #include <string.h>
 #include <stdlib.h>
 
 static const char *TAG = "mqtt_cmd";
 
-// Static buffer for incoming commands (avoids heap allocation)
 #define CMD_BUFFER_SIZE 128
 static char s_cmd_buffer[CMD_BUFFER_SIZE];
 
-void mqtt_publish_status(const threshold_status_t *status)
+static const char *json_get_string(const char *json, const char *key, int *len)
 {
-    cJSON *root = cJSON_CreateObject();
-    cJSON_AddStringToObject(root, "dev", g_device_id);
-    cJSON_AddNumberToObject(root, "crash", status->crash);
-    cJSON_AddNumberToObject(root, "braking", status->braking);
-    cJSON_AddNumberToObject(root, "accel", status->accel);
-    cJSON_AddNumberToObject(root, "cornering", status->cornering);
+    char pattern[32];
+    snprintf(pattern, sizeof(pattern), "\"%s\":\"", key);
 
-    char *json_str = cJSON_PrintUnformatted(root);
-    cJSON_Delete(root);
+    const char *start = strstr(json, pattern);
+    if (!start)
+        return NULL;
 
-    if (json_str)
-    {
-        int msg_id = esp_mqtt_client_publish(
-            g_mqtt_client, MQTT_TOPIC_STATUS, json_str, 0, MQTT_QOS_STATUS, 0);
+    start += strlen(pattern);
+    const char *end = strchr(start, '"');
+    if (!end)
+        return NULL;
 
-        if (msg_id >= 0)
-        {
-            ESP_LOGI(TAG, "Thresholds: crash=%.1f braking=%.1f accel=%.1f cornering=%.1f",
-                     status->crash, status->braking, status->accel, status->cornering);
-        }
-        else
-        {
-            ESP_LOGE(TAG, "Failed to publish status");
-        }
-        free(json_str);
-    }
+    *len = end - start;
+    return start;
+}
+
+static bool json_get_float(const char *json, const char *key, float *out)
+{
+    char pattern[32];
+    snprintf(pattern, sizeof(pattern), "\"%s\":", key);
+
+    const char *start = strstr(json, pattern);
+    if (!start)
+        return false;
+
+    start += strlen(pattern);
+
+    // Skip whitespace
+    while (*start == ' ')
+        start++;
+
+    *out = strtof(start, NULL);
+    return true;
+}
+
+static bool str_eq(const char *s, int len, const char *match)
+{
+    return (int)strlen(match) == len && strncmp(s, match, len) == 0;
 }
 
 static void handle_get_status(void)
 {
-    mqtt_command_t cmd = {
-        .type = MQTT_CMD_GET_STATUS};
+    mqtt_command_t cmd = {.type = MQTT_CMD_GET_STATUS};
     bool was_full = false;
+
     if (ring_buffer_push_back(mqtt_command_queue, &cmd, &was_full))
     {
         if (was_full)
@@ -64,12 +76,13 @@ static void handle_get_status(void)
     }
 }
 
-static void handle_set_threshold(cJSON *root)
+static void handle_set_threshold(const char *json)
 {
-    cJSON *type_obj = cJSON_GetObjectItem(root, "type");
-    cJSON *value_obj = cJSON_GetObjectItem(root, "value");
+    int type_len;
+    const char *type_str = json_get_string(json, "type", &type_len);
+    float value;
 
-    if (!type_obj || !value_obj)
+    if (!type_str || !json_get_float(json, "value", &value))
     {
         ESP_LOGE(TAG, "set_threshold missing type or value");
         return;
@@ -77,20 +90,19 @@ static void handle_set_threshold(cJSON *root)
 
     mqtt_command_t cmd = {
         .type = MQTT_CMD_SET_THRESHOLD,
-        .data.set_threshold.value = (float)value_obj->valuedouble};
+        .data.set_threshold.value = value};
 
-    const char *type = type_obj->valuestring;
-    if (strcmp(type, "crash") == 0)
+    if (str_eq(type_str, type_len, "crash"))
         cmd.data.set_threshold.threshold = THRESHOLD_CRASH;
-    else if (strcmp(type, "braking") == 0)
+    else if (str_eq(type_str, type_len, "braking"))
         cmd.data.set_threshold.threshold = THRESHOLD_BRAKING;
-    else if (strcmp(type, "accel") == 0)
+    else if (str_eq(type_str, type_len, "accel"))
         cmd.data.set_threshold.threshold = THRESHOLD_ACCEL;
-    else if (strcmp(type, "cornering") == 0)
+    else if (str_eq(type_str, type_len, "cornering"))
         cmd.data.set_threshold.threshold = THRESHOLD_CORNERING;
     else
     {
-        ESP_LOGW(TAG, "Unknown threshold type: %s", type);
+        ESP_LOGW(TAG, "Unknown threshold type: %.*s", type_len, type_str);
         return;
     }
 
@@ -101,11 +113,35 @@ static void handle_set_threshold(cJSON *root)
         {
             ESP_LOGW(TAG, "Command queue full, overwrote oldest command");
         }
-        ESP_LOGI(TAG, "Set %s threshold to %.1f", type, cmd.data.set_threshold.value);
+        ESP_LOGI(TAG, "Set %.*s threshold to %.1f", type_len, type_str, value);
     }
     else
     {
         ESP_LOGE(TAG, "Failed to queue command");
+    }
+}
+
+// --- Public API ---
+
+void mqtt_publish_status(const threshold_status_t *status)
+{
+    const char *json = serialize_status(status);
+    if (!json)
+    {
+        return;
+    }
+
+    int msg_id = esp_mqtt_client_publish(
+        g_mqtt_client, MQTT_TOPIC_STATUS, json, 0, MQTT_QOS_STATUS, 0);
+
+    if (msg_id >= 0)
+    {
+        ESP_LOGI(TAG, "Thresholds: crash=%.1f braking=%.1f accel=%.1f cornering=%.1f",
+                 status->crash, status->braking, status->accel, status->cornering);
+    }
+    else
+    {
+        ESP_LOGE(TAG, "Failed to publish status");
     }
 }
 
@@ -120,34 +156,24 @@ void mqtt_handle_command(const char *data, int data_len)
     memcpy(s_cmd_buffer, data, data_len);
     s_cmd_buffer[data_len] = '\0';
 
-    cJSON *root = cJSON_Parse(s_cmd_buffer);
-
-    if (!root)
-    {
-        ESP_LOGE(TAG, "Failed to parse command JSON");
-        return;
-    }
-
-    cJSON *cmd_obj = cJSON_GetObjectItem(root, "cmd");
-    if (!cmd_obj || !cmd_obj->valuestring)
+    int cmd_len;
+    const char *cmd_str = json_get_string(s_cmd_buffer, "cmd", &cmd_len);
+    if (!cmd_str)
     {
         ESP_LOGW(TAG, "Missing cmd field");
-        cJSON_Delete(root);
         return;
     }
 
-    if (strcmp(cmd_obj->valuestring, "get_status") == 0)
+    if (str_eq(cmd_str, cmd_len, "get_status"))
     {
         handle_get_status();
     }
-    else if (strcmp(cmd_obj->valuestring, "set_threshold") == 0)
+    else if (str_eq(cmd_str, cmd_len, "set_threshold"))
     {
-        handle_set_threshold(root);
+        handle_set_threshold(s_cmd_buffer);
     }
     else
     {
-        ESP_LOGW(TAG, "Unknown command: %s", cmd_obj->valuestring);
+        ESP_LOGW(TAG, "Unknown command: %.*s", cmd_len, cmd_str);
     }
-
-    cJSON_Delete(root);
 }

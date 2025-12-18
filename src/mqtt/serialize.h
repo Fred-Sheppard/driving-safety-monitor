@@ -17,4 +17,6 @@ const char *serialize_alert(const mqtt_message_t *msg);
  */
 const char *serialize_batch(const sensor_batch_t *batch);
 
+const char *serialize_status(const threshold_status_t *status);
+
 #endif // SERIALIZE_H

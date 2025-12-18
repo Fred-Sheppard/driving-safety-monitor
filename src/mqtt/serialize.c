@@ -86,3 +86,26 @@ const char *serialize_batch(const sensor_batch_t *batch) {
 
     return s_batch_buffer;
 }
+
+// Static buffer for status JSON
+#define STATUS_BUFFER_SIZE 128
+static char s_status_buffer[STATUS_BUFFER_SIZE];
+
+const char *serialize_status(const threshold_status_t *status)
+{
+    int len = snprintf(s_status_buffer, STATUS_BUFFER_SIZE,
+                       "{\"dev\":\"%s\",\"crash\":%.1f,\"braking\":%.1f,\"accel\":%.1f,\"cornering\":%.1f}",
+                       g_device_id,
+                       status->crash,
+                       status->braking,
+                       status->accel,
+                       status->cornering);
+
+    if (len < 0 || len >= STATUS_BUFFER_SIZE)
+    {
+        ESP_LOGE(TAG, "Status buffer overflow");
+        return NULL;
+    }
+
+    return s_status_buffer;
+}
