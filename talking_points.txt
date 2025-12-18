@@ -1,0 +1,29 @@
+TODO: Add line numbers to each
+- [x] Statistics
+- [x] Tasks
+- [x] Scheduling
+- [x] Pre-emptive vs cooperative scheduling
+- [x] Task starvation
+- [x] Priority inversion (say we had to tasks writing to the screen)
+- [T] SMP, AMP and multicore (get some screenshots)
+- [T] Core affinity (We don't set any, so any core could be used for any task)
+- [x] Interrupts
+- [T] Timers
+- [ ] Notifications
+- [x] State machines
+- [x] Lookup tables
+- [x] Buffers and pools
+- [x] Structs & unions
+- [x] Watchdogs
+- [x] Communication protocols - know what we use
+- [ ] Analog data (not used for us?)
+- [x] Atomics
+- [x] Mutexes
+- [x] Semaphores
+- [T] Spinlocks
+- [ ] Re-entrant vs thread safe
+- [x] WiFi
+- [T] Control algorithms (Like what I was talking about with the autopilot, not really relevant to us)
+- [T] Power usage
+- [x] Bidirectional queue
+- [x] Ring buffer
