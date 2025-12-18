@@ -4,6 +4,7 @@
 #include "config.h"
 #include "message_types.h"
 #include "queue/ring_buffer.h"
+#include "queue/ring_buffer_utils.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -82,11 +83,9 @@ void sensor_task(void *pvParameters)
         ESP_LOGI(TAG, "z: %.2f", r.z);
 #endif
 
-        bool was_full = false;
-        if (!ring_buffer_push_back(sensor_rb, &r, &was_full))
+        if (!ring_buffer_push_back_with_full_log(sensor_rb, &r,
+                                                 "sensor_rb full, overwrote oldest reading"))
             ESP_LOGW(TAG, "sensor_rb: failed to push sensor reading");
-        else if (was_full)
-            ESP_LOGW(TAG, "sensor_rb full, overwrote oldest reading");
 
         vTaskDelay(pdMS_TO_TICKS(SENSOR_INTERVAL_MS));
     }

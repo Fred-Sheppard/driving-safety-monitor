@@ -1,5 +1,6 @@
 #include "message_types.h"
 #include "queue/ring_buffer.h"
+#include "queue/ring_buffer_utils.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -67,14 +68,10 @@ static void batch_telemetry_reading(const sensor_reading_t *data)
     {
         current_batch.sample_count = batch_index;
 
-        bool was_full = false;
-        if (!ring_buffer_push_back(batch_rb, &current_batch, &was_full))
+        if (!ring_buffer_push_back_with_full_log(batch_rb, &current_batch,
+                                                 "batch_rb full, overwrote oldest batch"))
         {
             ESP_LOGW(TAG, "batch_rb: failed to push telemetry batch");
-        }
-        else if (was_full)
-        {
-            ESP_LOGW(TAG, "batch_rb full, overwrote oldest batch");
         }
 
         batch_index = 0;
@@ -91,14 +88,11 @@ static void send_status_response(void)
             .accel = detector_get_threshold(DETECTOR_HARSH_ACCEL),
             .cornering = detector_get_threshold(DETECTOR_HARSH_CORNERING)}};
 
-    bool was_full = false;
-    if (!ring_buffer_push_back(mqtt_response_queue, &response, &was_full))
+
+    if (!ring_buffer_push_back_with_full_log(mqtt_response_queue, &response,
+                                             "Response queue full, overwrote oldest response"))
     {
         ESP_LOGW(TAG, "Failed to queue status response");
-    }
-    else if (was_full)
-    {
-        ESP_LOGW(TAG, "Response queue full, overwrote oldest response");
     }
 }
 

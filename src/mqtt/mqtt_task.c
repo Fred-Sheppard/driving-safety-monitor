@@ -4,6 +4,7 @@
 #include "config.h"
 #include "message_types.h"
 #include "queue/ring_buffer.h"
+#include "queue/ring_buffer_utils.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -83,13 +84,9 @@ static void request_initial_status(void)
 {
     mqtt_command_t status_req = {
         .type = MQTT_CMD_GET_STATUS};
-    bool was_full = false;
-    if (ring_buffer_push_back(mqtt_command_queue, &status_req, &was_full))
+    if (ring_buffer_push_back_with_full_log(mqtt_command_queue, &status_req,
+                                            "Command queue full, overwrote oldest command"))
     {
-        if (was_full)
-        {
-            ESP_LOGW(TAG, "Command queue full, overwrote oldest command");
-        }
         ESP_LOGI(TAG, "Requested initial status");
     }
     else

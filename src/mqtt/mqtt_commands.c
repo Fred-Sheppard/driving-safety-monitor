@@ -3,6 +3,7 @@
 #include "config.h"
 #include "message_types.h"
 #include "queue/ring_buffer.h"
+#include "queue/ring_buffer_utils.h"
 
 #include "mqtt_client.h"
 #include "esp_log.h"
@@ -60,14 +61,9 @@ static bool str_eq(const char *s, int len, const char *match)
 static void handle_get_status(void)
 {
     mqtt_command_t cmd = {.type = MQTT_CMD_GET_STATUS};
-    bool was_full = false;
-
-    if (ring_buffer_push_back(mqtt_command_queue, &cmd, &was_full))
+    if (ring_buffer_push_back_with_full_log(mqtt_command_queue, &cmd,
+                                            "Command queue full, overwrote oldest command"))
     {
-        if (was_full)
-        {
-            ESP_LOGW(TAG, "Command queue full, overwrote oldest command");
-        }
         ESP_LOGI(TAG, "Status request queued");
     }
     else
@@ -106,13 +102,9 @@ static void handle_set_threshold(const char *json)
         return;
     }
 
-    bool was_full = false;
-    if (ring_buffer_push_back(mqtt_command_queue, &cmd, &was_full))
+    if (ring_buffer_push_back_with_full_log(mqtt_command_queue, &cmd,
+                                            "Command queue full, overwrote oldest command"))
     {
-        if (was_full)
-        {
-            ESP_LOGW(TAG, "Command queue full, overwrote oldest command");
-        }
         ESP_LOGI(TAG, "Set %.*s threshold to %.1f", type_len, type_str, value);
     }
     else
