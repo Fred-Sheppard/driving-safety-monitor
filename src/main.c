@@ -46,8 +46,8 @@ void app_main(void)
     mqtt_rb = ring_buffer_create(MQTT_QUEUE_SIZE, sizeof(mqtt_message_t));
     batch_rb = ring_buffer_create(BATCH_QUEUE_SIZE, sizeof(sensor_batch_t));
     sensor_rb = ring_buffer_create(SENSOR_QUEUE_SIZE, sizeof(sensor_reading_t));
-    mqtt_command_queue = ring_buffer_create(5, sizeof(mqtt_command_t));
-    mqtt_response_queue = ring_buffer_create(5, sizeof(mqtt_command_t));
+    mqtt_command_queue = ring_buffer_create(COMMAND_QUEUE_SIZE, sizeof(mqtt_command_t));
+    mqtt_response_queue = ring_buffer_create(RESPONSE_QUEUE_SIZE, sizeof(mqtt_command_t));
     if (mqtt_rb == NULL || batch_rb == NULL || sensor_rb == NULL || 
         mqtt_command_queue == NULL || mqtt_response_queue == NULL)
     {
