@@ -43,8 +43,18 @@ SemaphoreHandle_t stateMutex = NULL;
 static unsigned long lastCountdownTime = 0;
 static unsigned long stateStartTime = 0;
 
+static bool is_critical_crash_state() {
+  return currentState == STATE_WARNING_COUNTDOWN || currentState == STATE_CRASH;
+}
+
 static void set_state(AppState state)
 {
+  // Prevent state changes during critical crash states unless explicitly returning to main
+  if (is_critical_crash_state() && state != STATE_MAIN) {
+    ESP_LOGI(TAG, "Ignoring state change to %d during critical crash state", state);
+    return;
+  }
+  
   xSemaphoreTake(stateMutex, portMAX_DELAY);
   currentState = state;
   xSemaphoreGive(stateMutex);
@@ -79,6 +89,7 @@ void display_init()
 
 static void handleCountdownState(unsigned long currentTime)
 {
+  // Only allow cancel button to work during countdown
   if (checkCancelButton())
   {
     ESP_LOGI(TAG, "Warning cancelled by user");
@@ -103,6 +114,11 @@ static void handleCountdownState(unsigned long currentTime)
 
 static void handleNormalWarning()
 {
+  // Don't allow normal warnings to interrupt crash states
+  if (is_critical_crash_state()) {
+    return;
+  }
+  
   if (checkCancelButton())
   {
     ESP_LOGI(TAG, "Normal Warning dismissed by user");
@@ -169,11 +185,19 @@ void displayTask(void *pvParameters)
 
 void triggerWarningCountdown(const char *message)
 {
+  // Don't allow new crash countdowns if already in a crash state
+  if (is_critical_crash_state()) {
+    ESP_LOGI(TAG, "Ignoring new crash warning - already in crash state");
+    return;
+  }
+  
   currentWarningMessage = message;
   xSemaphoreTake(stateMutex, portMAX_DELAY);
   currentState = STATE_WARNING_COUNTDOWN;
   countdownValue = INITIAL_COUNTDOWN_VALUE;
   xSemaphoreGive(stateMutex);
+  
+  ESP_LOGI(TAG, "Crash countdown started");
 }
 
 void triggerNormalWarning(const char *message)
